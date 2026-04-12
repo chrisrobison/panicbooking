@@ -1,0 +1,11 @@
+# Example cron entries for PanicBooking sync/import jobs
+#
+# 1) Every hour at minute 5 (recommended for fresh events)
+5 * * * * cd /Users/cdr/Projects/panicbooking && /bin/bash ./cron_sync.sh --quiet
+#
+# 2) Daily at 2:15 AM
+15 2 * * * cd /Users/cdr/Projects/panicbooking && /bin/bash ./cron_sync.sh --quiet
+#
+# Optional: enable Ticketmaster scraping in cron environment
+# (set before the command on the same line)
+# 5 * * * * cd /Users/cdr/Projects/panicbooking && TM_API_KEY=your_key_here /bin/bash ./cron_sync.sh --quiet
