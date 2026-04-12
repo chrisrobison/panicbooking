@@ -15,7 +15,13 @@ If no variables are set, app defaults to SQLite at `data/booking.db`.
 
 ### Payment mode
 - `PB_PAYMENT_MODE=demo` (default): creates paid orders immediately for development.
-- `PB_PAYMENT_MODE=stripe`: reserved hook; not implemented yet in this MVP.
+- `PB_PAYMENT_MODE=stripe`: uses Stripe Checkout + webhook-confirmed order finalization.
+- `PB_PUBLIC_BASE_URL=https://your-domain.test` (recommended in Stripe mode for redirect/webhook URLs)
+- `PB_STRIPE_SECRET_KEY=sk_test_...`
+- `PB_STRIPE_PUBLISHABLE_KEY=pk_test_...` (optional for future client-side use)
+- `PB_STRIPE_WEBHOOK_SECRET=whsec_...`
+- `PB_STRIPE_WEBHOOK_TOLERANCE=300` (optional, seconds)
+- `PB_STRIPE_API_BASE=https://api.stripe.com/v1` (optional override)
 
 ## Ticketing Flow
 
@@ -33,6 +39,12 @@ If no variables are set, app defaults to SQLite at `data/booking.db`.
   3. inventory is decremented safely
   4. one ticket row is created per admission
   5. receipt redirects to `/order-success.php`
+- In stripe mode:
+  1. pending order is created
+  2. Stripe Checkout Session is created and buyer is redirected
+  3. buyer returns to `/checkout-success.php` or `/checkout-cancel.php`
+  4. webhook verification is the source of truth for setting paid/failed/canceled/refunded
+  5. tickets are issued only when webhook-confirmed payment calls finalization
 
 ### Ticket and QR
 - `/order-success.php?order_id=...&receipt=...` renders one QR per ticket.
@@ -44,6 +56,12 @@ If no variables are set, app defaults to SQLite at `data/booking.db`.
 - Camera scan (BarcodeDetector API) + manual token/code entry + search fallback.
 - API validates ticket/event/order/status and prevents duplicate check-ins.
 - Every check-in attempt is written to `checkins`.
+
+### Stripe webhook
+- Primary endpoint: `/stripe-webhook.php`
+- API endpoint: `POST /api/payments/stripe_webhook`
+- Signature is verified using `PB_STRIPE_WEBHOOK_SECRET`.
+- Duplicate delivery is handled idempotently by `payment_webhook_events` (`provider + event_id` unique).
 
 ## API Actions Added
 
@@ -59,6 +77,9 @@ Under `/api/ticketing/...`:
 - `POST check_in_ticket`
 - `GET search_ticket_by_code`
 
+Under `/api/payments/...`:
+- `POST stripe_webhook`
+
 ## Security and Robustness
 
 - Prepared statements used for ticketing DB writes/reads.
@@ -66,7 +87,9 @@ Under `/api/ticketing/...`:
 - Permission checks enforce venue/admin ownership for event/ticket/check-in operations.
 - Inventory checks prevent overselling at payment-finalization time.
 - Conditional ticket update prevents duplicate check-ins.
-- Basic action/error logging via `error_log` for purchase/check-in failures.
+- Stripe webhook signatures are verified before processing.
+- Webhook events are logged with minimal metadata and deduplicated by Stripe event id.
+- Ticket issuance remains inside a single transactional finalize path to prevent duplicate tickets.
 
 ## Schema / Migration
 
@@ -81,6 +104,7 @@ New tables:
 - `order_items`
 - `tickets`
 - `checkins`
+- `payment_webhook_events`
 
 ## Assumptions
 
@@ -89,10 +113,18 @@ New tables:
 - Demo mode treats purchase submission as successful payment.
 - Existing legacy (non-ticketing) queries still include some SQLite-specific JSON usage and can be refactored separately for full MySQL parity.
 
-## What To Do Next For Stripe Integration
+## Local Stripe CLI Testing
 
-1. Implement Stripe checkout/session creation in `api/includes/payment.php` (new `stripe` branch).
-2. Keep `create_order` pending and store Stripe session/payment intent reference.
-3. Add webhook endpoint to verify Stripe events and call `paymentFinalizeSuccessfulOrder(...)` only on confirmed payment.
-4. Add idempotency keys + webhook signature verification.
-5. Add failed/canceled payment state handling and buyer-facing retry UI.
+1. Set env vars:
+   - `PB_PAYMENT_MODE=stripe`
+   - `PB_PUBLIC_BASE_URL=http://localhost:8000` (or your local URL)
+   - `PB_STRIPE_SECRET_KEY=sk_test_...`
+2. Start PHP server (example): `php -S localhost:8000`
+3. Start Stripe listener and capture webhook secret:
+   - `stripe listen --forward-to http://localhost:8000/stripe-webhook.php`
+4. Set emitted secret in app env:
+   - `PB_STRIPE_WEBHOOK_SECRET=whsec_...`
+5. Trigger test events if needed:
+   - `stripe trigger checkout.session.completed`
+   - `stripe trigger payment_intent.payment_failed`
+   - `stripe trigger charge.refunded`

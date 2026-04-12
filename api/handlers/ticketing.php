@@ -182,6 +182,10 @@ function handleTicketingMarkOrderPaid(PDO $pdo): void {
     // Public endpoint for demo mode completion flow.
     apiRequireCsrf();
 
+    if (paymentMode() !== 'demo') {
+        errorResponse('mark_order_paid is only available in demo mode', 403);
+    }
+
     $body = ticketingApiBody();
     $orderId = (int)($body['order_id'] ?? 0);
     if ($orderId <= 0) {

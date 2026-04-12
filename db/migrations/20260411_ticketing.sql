@@ -115,3 +115,22 @@ CREATE TABLE IF NOT EXISTS checkins (
 );
 CREATE INDEX IF NOT EXISTS idx_checkins_event_created ON checkins(event_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_checkins_ticket ON checkins(ticket_id);
+
+-- Webhook receipt + idempotency tracking (Stripe)
+CREATE TABLE IF NOT EXISTS payment_webhook_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'received',
+  related_order_id INTEGER,
+  note TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  processed_at DATETIME,
+  UNIQUE(provider, event_id),
+  FOREIGN KEY(related_order_id) REFERENCES orders(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_payment_webhook_events_status ON payment_webhook_events(provider, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_payment_webhook_events_order ON payment_webhook_events(related_order_id);

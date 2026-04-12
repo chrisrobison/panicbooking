@@ -41,6 +41,7 @@ require_once __DIR__ . '/handlers/bookings.php';
 require_once __DIR__ . '/handlers/scores.php';
 require_once __DIR__ . '/handlers/admin.php';
 require_once __DIR__ . '/handlers/ticketing.php';
+require_once __DIR__ . '/handlers/payments.php';
 
 // Parse route
 $requestUri    = $_SERVER['REQUEST_URI'] ?? '/';
@@ -223,6 +224,14 @@ if ($resource === 'dark-nights' && $method === 'GET') {
         handleTicketingCheckInTicket($pdo);
     } elseif ($sub === 'search_ticket_by_code' && $method === 'GET') {
         handleTicketingSearchTicketByCode($pdo);
+    } else {
+        errorResponse('Not found', 404);
+    }
+
+// --- Payments ---
+} elseif ($resource === 'payments') {
+    if ($sub === 'stripe_webhook' && $method === 'POST') {
+        handlePaymentsStripeWebhook($pdo);
     } else {
         errorResponse('Not found', 404);
     }

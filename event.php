@@ -15,6 +15,7 @@ if (!$event) {
 }
 
 $ticketTypes = ticketingGetTicketTypes($pdo, (int)$event['id'], false);
+$paymentMode = paymentMode();
 $error = '';
 
 $defaultName = '';
@@ -57,15 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $order = paymentCreateOrder($pdo, $orderPayload);
-        $finalized = paymentFinalizeSuccessfulOrder($pdo, (int)$order['order_id']);
-
-        $orderId = (int)($finalized['id'] ?? $order['order_id']);
-        if ($orderId <= 0) {
-            $orderId = (int)$order['order_id'];
-        }
-
-        $receiptToken = ticketingBuildReceiptToken($orderId, $buyerEmail);
-        header('Location: /order-success.php?order_id=' . $orderId . '&receipt=' . urlencode($receiptToken));
+        $checkout = paymentBeginCheckout($pdo, (int)$order['order_id']);
+        header('Location: ' . (string)$checkout['redirect_url'], true, 303);
         exit;
     } catch (Throwable $e) {
         $error = $e->getMessage();
@@ -104,9 +98,15 @@ function fmtDate(?string $value): string {
             <p style="margin-bottom:1rem;"><?= nl2br(htmlspecialchars((string)$event['description'])) ?></p>
         <?php endif; ?>
 
-        <div class="alert alert-info" style="margin-bottom:1rem;">
-            Demo payment mode is active. Submitting this form creates a paid order and issues tickets immediately.
-        </div>
+        <?php if ($paymentMode === 'demo'): ?>
+            <div class="alert alert-info" style="margin-bottom:1rem;">
+                Demo payment mode is active. Submitting this form creates a paid order and issues tickets immediately.
+            </div>
+        <?php else: ?>
+            <div class="alert alert-info" style="margin-bottom:1rem;">
+                Secure Stripe Checkout is enabled. Tickets are issued only after webhook-verified payment.
+            </div>
+        <?php endif; ?>
 
         <?php if ($error): ?>
             <div class="alert alert-error" style="margin-bottom:1rem;"><?= htmlspecialchars($error) ?></div>
