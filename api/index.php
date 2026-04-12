@@ -70,10 +70,50 @@ if ($resource === 'dark-nights' && $method === 'GET') {
 
 // --- Bookings ---
 } elseif ($resource === 'bookings') {
+    $bookingId = isset($segments[1]) && ctype_digit((string)$segments[1]) ? (int)$segments[1] : null;
+
     if ($sub === 'interests' && $method === 'GET') {
         handleBookingInterestsList($pdo);
     } elseif ($sub === 'interest' && $method === 'POST') {
         handleBookingInterestCreate($pdo);
+    } elseif ($sub === 'opportunities') {
+        $oppId = isset($segments[2]) && ctype_digit((string)$segments[2]) ? (int)$segments[2] : null;
+        $oppSub = $segments[3] ?? '';
+
+        if ($oppId === null) {
+            if ($method === 'GET') {
+                handleBookingOpportunityList($pdo);
+            } elseif ($method === 'POST') {
+                handleBookingOpportunityCreate($pdo);
+            } else {
+                errorResponse('Method not allowed', 405);
+            }
+        } else {
+            if ($oppSub === '' && $method === 'GET') {
+                handleBookingOpportunityGet($pdo, $oppId);
+            } elseif ($oppSub === 'inquiries' && $method === 'POST') {
+                handleBookingInquiryCreate($pdo, $oppId);
+            } elseif ($oppSub === 'status' && ($method === 'POST' || $method === 'PUT')) {
+                handleBookingOpportunityStatusUpdate($pdo, $oppId);
+            } else {
+                errorResponse('Not found', 404);
+            }
+        }
+    } elseif ($sub === 'mine' && $method === 'GET') {
+        handleBookingMineList($pdo);
+    } elseif ($sub === 'requests' && $method === 'GET') {
+        handleBookingRequestsList($pdo);
+    } elseif ($bookingId !== null) {
+        $bookingSub = $segments[2] ?? '';
+        if ($bookingSub === '' && $method === 'GET') {
+            handleBookingGet($pdo, $bookingId);
+        } elseif ($bookingSub === 'transition' && ($method === 'POST' || $method === 'PUT')) {
+            handleBookingTransition($pdo, $bookingId);
+        } elseif ($bookingSub === 'notes' && $method === 'POST') {
+            handleBookingNoteCreate($pdo, $bookingId);
+        } else {
+            errorResponse('Not found', 404);
+        }
     } else {
         errorResponse('Not found', 404);
     }

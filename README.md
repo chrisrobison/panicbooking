@@ -2,6 +2,51 @@
 
 Lean PHP app for San Francisco venue/band booking + ticketing MVP.
 
+## Booking Workflow Setup Notes
+
+### New app pages
+- `/app/opportunities.php`
+  - venue/admin: post and manage open-date opportunities
+  - band/admin: browse open opportunities and submit inquiries
+- `/app/bookings.php`
+  - venue/band/admin: view booking pipeline, status, history, and notes
+  - permitted users can transition booking status
+
+### Booking lifecycle statuses
+- `inquiry`
+- `hold`
+- `offer_sent`
+- `accepted`
+- `contracted`
+- `canceled`
+- `completed`
+
+### State transition rules
+- `inquiry -> hold|offer_sent|canceled`
+- `hold -> offer_sent|canceled`
+- `offer_sent -> accepted|canceled`
+- `accepted -> contracted|canceled`
+- `contracted -> completed|canceled`
+- `completed` and `canceled` are terminal for non-admin users
+- non-admin users can only mark `completed` on/after event date
+
+### Booking workflow API
+Under `/api/bookings/...`:
+- `GET opportunities`
+- `POST opportunities`
+- `GET opportunities/{id}`
+- `POST|PUT opportunities/{id}/status`
+- `POST opportunities/{id}/inquiries`
+- `GET mine`
+- `GET requests`
+- `GET {id}`
+- `POST|PUT {id}/transition`
+- `POST {id}/notes`
+
+Legacy compatibility routes kept:
+- `POST interest`
+- `GET interests`
+
 ## Ticketing MVP Setup Notes
 
 ### Database config
@@ -95,6 +140,7 @@ Under `/api/payments/...`:
 
 - Bootstrap schema is in `api/includes/db.php`.
 - SQL reference migration file: `db/migrations/20260411_ticketing.sql`.
+- Additional booking workflow migration: `db/migrations/20260411_booking_workflow.sql`.
 
 New tables:
 
@@ -105,10 +151,20 @@ New tables:
 - `tickets`
 - `checkins`
 - `payment_webhook_events`
+- `opportunities`
+- `booking_requests`
+- `bookings`
+- `booking_status_history`
+- `booking_notes`
 
 ## Assumptions
 
 - `users.id` for a `type='venue'` user is used as `events.venue_id`.
+- `users.id` for a `type='venue'` user is also used as `opportunities.venue_user_id`.
+- each inquiry creates one `booking_request` + one `booking` at `inquiry` status.
+- a band cannot create more than one active inquiry for the same opportunity.
+- only one booking per opportunity can be in `accepted|contracted|completed` at a time.
+- admin users may override normal status transitions.
 - Ticketing is general admission only (no seats/transfers/resale/memberships).
 - Demo mode treats purchase submission as successful payment.
 - Existing legacy (non-ticketing) queries still include some SQLite-specific JSON usage and can be refactored separately for full MySQL parity.
