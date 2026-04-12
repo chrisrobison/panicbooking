@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
-# cron_sync.sh — cron-safe importer/scraper runner
+# cron_sync.sh — cron-safe Event Sync runner
 # Usage:
 #   bash cron_sync.sh [--quiet]
-#
-# Runs:
-#   - scrape_foopee.php
-#   - scrape_venues.php all
-#   - scrape_venues.php ticketmaster (only if TM_API_KEY set or PB_ENABLE_TICKETMASTER=1)
-#   - compute_scores.php
-#   - import_bands.php
-#   - import_venues.php
 
 set -u
 set -o pipefail
@@ -43,7 +35,6 @@ log() {
     fi
 }
 
-# Atomic lock to prevent overlapping cron runs.
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     log "Another cron_sync run is already in progress; exiting."
     exit 0
@@ -79,15 +70,10 @@ log "Working directory: $DIR"
 log "PHP binary: $PHP_BIN"
 log "========================================="
 
-run_step "Scrape Foopee" "$DIR/scrape_foopee.php"
-run_step "Scrape venues (all non-ticketmaster)" "$DIR/scrape_venues.php" all
-
-if [[ -n "${TM_API_KEY:-}" || "${PB_ENABLE_TICKETMASTER:-0}" == "1" ]]; then
-    run_step "Scrape venues (ticketmaster)" "$DIR/scrape_venues.php" ticketmaster
-else
-    log "Skipping Ticketmaster scrape (TM_API_KEY not set; set PB_ENABLE_TICKETMASTER=1 to force)."
-fi
-
+run_step "Sync canonical venues" "$DIR/scripts/sync_venues.php" --include-discovered
+run_step "Event Sync (all adapters)" "$DIR/scripts/sync_events.php" --adapter=all --skip-venue-sync
+run_step "Compute venue scores" "$DIR/scripts/compute_venue_scores.php"
+run_step "Compute dark nights" "$DIR/scripts/compute_dark_nights.php" --days=60
 run_step "Compute performer scores" "$DIR/compute_scores.php"
 run_step "Import bands" "$DIR/import_bands.php"
 run_step "Import venues" "$DIR/import_venues.php"
@@ -107,4 +93,3 @@ if [[ $FAILURES -gt 0 ]]; then
     exit 1
 fi
 exit 0
-

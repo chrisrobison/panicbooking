@@ -202,7 +202,7 @@ if ($resource === 'dark-nights' && $method === 'GET') {
         }
     }
 
-// --- Events (Foopee "The List") ---
+// --- Event Sync feeds ---
 } elseif ($resource === 'events') {
     if ($id === null) {
         if ($sub === 'stats' && $method === 'GET') {

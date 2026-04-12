@@ -1,5 +1,5 @@
 <?php
-// Events handler — reads from scraped_events table (Foopee "The List")
+// Events handler — reads from Event Sync canonical rows in scraped_events.
 
 /**
  * GET /api/events
@@ -153,6 +153,7 @@ function handleDarkNights(PDO $pdo): void {
     $today    = date('Y-m-d');
     $dateFrom = trim($_GET['date_from'] ?? $today);
     $days     = max(1, min(90, (int)($_GET['days'] ?? 30)));
+    $source   = trim((string)($_GET['source'] ?? ''));
 
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
         $dateFrom = $today;
@@ -169,47 +170,98 @@ function handleDarkNights(PDO $pdo): void {
         $cursor->modify('+1 day');
     }
 
-    // Fetch all SF shows in the window grouped by venue + date
-    $stmt = $pdo->prepare("
-        SELECT venue_name, venue_city, source, event_date, COUNT(*) AS show_count
-        FROM scraped_events
-        WHERE venue_city = 'S.F.'
-          AND event_date >= :date_from
-          AND event_date <= :date_to
-        GROUP BY venue_name, event_date
-        ORDER BY venue_name ASC, event_date ASC
-    ");
-    $stmt->execute([':date_from' => $dateFrom, ':date_to' => $dateTo]);
+    // Fetch all SF shows in the window grouped by venue + date.
+    $sql = "
+        SELECT
+            COALESCE(NULLIF(se.canonical_venue_slug, ''), se.venue_name) AS venue_key,
+            COALESCE(v.slug, se.canonical_venue_slug, '') AS venue_slug,
+            COALESCE(v.display_name, se.venue_name) AS venue_name,
+            se.venue_city,
+            se.source,
+            se.event_date,
+            COUNT(*) AS show_count
+        FROM scraped_events se
+        LEFT JOIN event_sync_venues v ON v.slug = se.canonical_venue_slug
+        WHERE se.venue_city = 'S.F.'
+          AND se.event_date >= :date_from
+          AND se.event_date <= :date_to
+    ";
+    $params = [':date_from' => $dateFrom, ':date_to' => $dateTo];
+    if ($source !== '') {
+        $sql .= " AND se.source = :source";
+        $params[':source'] = $source;
+    }
+    $sql .= "
+        GROUP BY
+            COALESCE(NULLIF(se.canonical_venue_slug, ''), se.venue_name),
+            COALESCE(v.slug, se.canonical_venue_slug, ''),
+            COALESCE(v.display_name, se.venue_name),
+            se.venue_city,
+            se.source,
+            se.event_date
+        ORDER BY venue_name ASC, se.event_date ASC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $rows = $stmt->fetchAll();
 
-    // Build venue map: venue_name -> { venue_name, venue_city, source, booked_dates => Set }
+    // Build venue map: venue_key -> venue stats + booked_dates
     $venueMap = [];
     foreach ($rows as $row) {
-        $name = $row['venue_name'];
-        if (!isset($venueMap[$name])) {
-            $venueMap[$name] = [
-                'venue_name'   => $name,
+        $key = (string)($row['venue_key'] ?? $row['venue_name']);
+        if (!isset($venueMap[$key])) {
+            $venueMap[$key] = [
+                'venue_slug'   => (string)($row['venue_slug'] ?? ''),
+                'venue_name'   => $row['venue_name'],
                 'venue_city'   => $row['venue_city'],
                 'source'       => $row['source'],
                 'booked_dates' => [],
             ];
         }
-        if (!in_array($row['event_date'], $venueMap[$name]['booked_dates'], true)) {
-            $venueMap[$name]['booked_dates'][] = $row['event_date'];
+        if (!in_array($row['event_date'], $venueMap[$key]['booked_dates'], true)) {
+            $venueMap[$key]['booked_dates'][] = $row['event_date'];
+        }
+    }
+
+    // Load optional confidence metadata from canonical venue table.
+    $metaBySlug = [];
+    if (!empty($venueMap)) {
+        $slugs = array_values(array_filter(array_map(
+            static fn(array $v): string => (string)($v['venue_slug'] ?? ''),
+            $venueMap
+        )));
+        if (!empty($slugs)) {
+            $placeholders = implode(',', array_fill(0, count($slugs), '?'));
+            $metaStmt = $pdo->prepare("
+                SELECT slug, venue_score, venue_tier, coverage_confidence, has_official_sync
+                FROM event_sync_venues
+                WHERE slug IN ($placeholders)
+            ");
+            $metaStmt->execute($slugs);
+            foreach ($metaStmt->fetchAll() as $m) {
+                $metaBySlug[(string)$m['slug']] = $m;
+            }
         }
     }
 
     // Compute dark_dates for each venue and sort venues by booked count desc
     $venues = [];
-    foreach ($venueMap as $venueName => $venue) {
+    foreach ($venueMap as $venue) {
         $booked     = $venue['booked_dates'];
         $darkDates  = array_values(array_diff($allDates, $booked));
+        $slug       = (string)($venue['venue_slug'] ?? '');
+        $meta       = $slug !== '' ? ($metaBySlug[$slug] ?? null) : null;
         $venues[] = [
+            'venue_slug'   => $slug,
             'venue_name'   => $venue['venue_name'],
             'venue_city'   => $venue['venue_city'],
             'source'       => $venue['source'],
             'booked_dates' => $booked,
             'dark_dates'   => $darkDates,
+            'venue_score'  => $meta ? (float)($meta['venue_score'] ?? 0) : 0.0,
+            'venue_tier'   => $meta['venue_tier'] ?? 'Tier 4',
+            'coverage_confidence' => $meta ? (float)($meta['coverage_confidence'] ?? 0) : 0.0,
+            'has_official_sync'   => $meta ? (int)($meta['has_official_sync'] ?? 0) : 0,
         ];
     }
 
@@ -230,6 +282,7 @@ function eventsDecodeRow(array $row): array {
     $row['bands']       = json_decode($row['bands'] ?? '[]', true) ?: [];
     $row['is_sold_out'] = (int)($row['is_sold_out'] ?? 0);
     $row['is_ticketed'] = (int)($row['is_ticketed'] ?? 0);
+    $row['source_priority'] = (int)($row['source_priority'] ?? 0);
     $row['id']          = (int)$row['id'];
     $row['source']      = $row['source'] ?? 'foopee';
     return $row;

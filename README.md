@@ -2,6 +2,33 @@
 
 Lean PHP app for San Francisco venue/band booking + ticketing MVP.
 
+## Event Sync Pipeline
+
+Panic Booking now supports an adapter-based Event Ingestion Pipeline that keeps
+legacy `scraped_events` behavior intact while adding source-aware ingestion,
+canonical venue identity, venue scoring, and dark-night computation.
+
+### Core scripts
+
+- `php scripts/sync_venues.php --include-discovered`
+  - sync canonical venue definitions from `config/venues.php`
+  - backfill discovered venue rows from existing `scraped_events`
+- `php scripts/sync_events.php --adapter=all`
+  - runs Event Sync adapters and merges rows into canonical `scraped_events`
+  - supports `--venue=<slug>`, `--adapter=<key>`, `--dry-run`, `--verbose`
+- `php scripts/compute_venue_scores.php`
+  - computes deterministic venue scores and tiers (`Tier 1`..`Tier 4`)
+- `php scripts/compute_dark_nights.php --days=60`
+  - computes likely open dates with confidence and stores in `venue_dark_nights`
+
+### Legacy compatibility
+
+Legacy entrypoints are preserved and route to the new pipeline:
+
+- `scrape_foopee.php` -> `scripts/sync_events.php --adapter=foopee`
+- `scrape_venues.php` -> `scripts/sync_events.php --adapter=official`
+- `scrape_all.sh` / `cron_sync.sh` now run Event Sync + scoring + dark-night jobs.
+
 ## Booking Workflow Setup Notes
 
 ### New app pages
@@ -163,7 +190,7 @@ Under `/api/payments/...`:
 - Stripe webhook signatures are verified before processing.
 - Webhook events are logged with minimal metadata and deduplicated by Stripe event id.
 - Ticket issuance remains inside a single transactional finalize path to prevent duplicate tickets.
-- Maintenance/import/scrape scripts are CLI-first; web execution is disabled by default.
+- Maintenance/import/Event Sync scripts are CLI-first; web execution is disabled by default.
   - To explicitly allow web execution: `PB_ALLOW_WEB_MAINTENANCE=1` and `PB_MAINTENANCE_TOKEN=...`
 
 ## Schema / Migration

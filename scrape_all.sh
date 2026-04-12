@@ -1,10 +1,10 @@
 #!/bin/bash
-# scrape_all.sh — fetch all show data and recompute scores
+# scrape_all.sh — compatibility wrapper for Event Sync pipeline
 # Usage: bash scrape_all.sh [--quiet]
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PHP="$(command -v php || echo php)"
-LOG="$DIR/data/scrape.log"
+LOG="$DIR/data/event_sync.log"
 QUIET=0
 [[ "$1" == "--quiet" ]] && QUIET=1
 
@@ -19,7 +19,7 @@ log() {
 mkdir -p "$DIR/data"
 echo "" >> "$LOG"
 log "========================================="
-log "  Scrape started: $timestamp"
+log "  Event Sync started: $timestamp"
 log "========================================="
 
 run() {
@@ -37,14 +37,12 @@ run() {
     fi
 }
 
-run "The List (foopee.com)"      "$DIR/scrape_foopee.php"
-run "GAMH"                        "$DIR/scrape_venues.php" gamh
-run "The Warfield"                "$DIR/scrape_venues.php" warfield
-run "Regency Ballroom"            "$DIR/scrape_venues.php" regency
-run "The Fillmore (web)"          "$DIR/scrape_venues.php" fillmore
-run "Ticketmaster (Fillmore / Bill Graham / Warfield)" "$DIR/scrape_venues.php" ticketmaster
-run "Compute performer scores"   "$DIR/compute_scores.php"
-run "Import band profiles"       "$DIR/import_bands.php"
+run "Sync canonical venues" "$DIR/scripts/sync_venues.php" --include-discovered
+run "Event Sync (all sources)" "$DIR/scripts/sync_events.php" --adapter=all
+run "Compute venue scores" "$DIR/scripts/compute_venue_scores.php"
+run "Compute dark nights" "$DIR/scripts/compute_dark_nights.php" --days=60
+run "Compute performer scores" "$DIR/compute_scores.php"
+run "Import band profiles" "$DIR/import_bands.php"
 
 end=$(date +%s)
 elapsed=$((end - start))

@@ -40,11 +40,12 @@ $currentPage = 'dark-nights';
             </div>
             <select id="dnSourceFilter" class="search-select">
                 <option value="">All Sources</option>
-                <option value="foopee">The List</option>
+                <option value="foopee">Foopee Discovery</option>
                 <option value="gamh">GAMH</option>
                 <option value="warfield">Warfield</option>
                 <option value="regency">Regency</option>
                 <option value="fillmore">Fillmore</option>
+                <option value="ticketmaster">Ticketmaster</option>
             </select>
         </div>
 
