@@ -1,19 +1,41 @@
 <?php
 
 require_once __DIR__ . '/db_compat.php';
+require_once __DIR__ . '/security.php';
+
+function panicDbBootstrapDebugEnabled(): bool {
+    return panicEnvBool('PB_DB_BOOTSTRAP_DEBUG', false) || (function_exists('panicDbDebugEnabled') && panicDbDebugEnabled());
+}
+
+function panicDbBootstrapLog(string $event, array $context = [], string $level = 'info'): void {
+    if ($level !== 'error' && !panicDbBootstrapDebugEnabled()) {
+        return;
+    }
+    panicLog($event, $context, $level);
+}
 
 function panicDbBootstrap(PDO $pdo): void {
+    panicDbBootstrapLog('db_bootstrap_start', [
+        'driver' => panicDbDriver($pdo),
+    ]);
+
     panicDbEnsureMigrationsTable($pdo);
     panicDbApplyMigrations($pdo);
     panicDbApplyLegacyColumnPatches($pdo);
+
+    panicDbBootstrapLog('db_bootstrap_complete', [
+        'driver' => panicDbDriver($pdo),
+    ]);
 }
 
 function panicDbEnsureMigrationsTable(PDO $pdo): void {
     if (panicDbIsMysql($pdo)) {
+        panicDbBootstrapLog('db_migrations_table_ensure', ['driver' => 'mysql']);
         $pdo->exec("\n            CREATE TABLE IF NOT EXISTS schema_migrations (\n              id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,\n              migration_key VARCHAR(255) NOT NULL UNIQUE,\n              applied_at DATETIME DEFAULT CURRENT_TIMESTAMP\n            )\n        ");
         return;
     }
 
+    panicDbBootstrapLog('db_migrations_table_ensure', ['driver' => 'sqlite']);
     $pdo->exec("\n        CREATE TABLE IF NOT EXISTS schema_migrations (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          migration_key TEXT NOT NULL UNIQUE,\n          applied_at DATETIME DEFAULT CURRENT_TIMESTAMP\n        )\n    ");
 }
 
@@ -22,27 +44,60 @@ function panicDbApplyMigrations(PDO $pdo): void {
     $dir = __DIR__ . '/../db/migrations/' . $driver;
 
     if (!is_dir($dir)) {
+        panicDbBootstrapLog('db_migration_dir_missing', [
+            'driver' => $driver,
+            'dir' => $dir,
+        ], 'error');
         throw new RuntimeException('Missing migration directory for driver: ' . $driver);
     }
 
     $files = glob($dir . '/*.sql') ?: [];
     sort($files, SORT_STRING);
+    panicDbBootstrapLog('db_migrations_discovered', [
+        'driver' => $driver,
+        'dir' => $dir,
+        'count' => count($files),
+    ]);
 
     foreach ($files as $path) {
         $key = basename($path);
         if (panicDbHasMigration($pdo, $key)) {
+            panicDbBootstrapLog('db_migration_skip_already_applied', [
+                'migration' => $key,
+            ]);
             continue;
         }
 
+        panicDbBootstrapLog('db_migration_apply_start', [
+            'migration' => $key,
+        ]);
+
         $sql = file_get_contents($path);
         if ($sql === false) {
+            panicDbBootstrapLog('db_migration_read_failed', [
+                'migration' => $key,
+                'path' => $path,
+            ], 'error');
             throw new RuntimeException('Unable to read migration file: ' . $path);
         }
 
-        panicDbExecSqlBatch($pdo, $sql);
+        try {
+            panicDbExecSqlBatch($pdo, $sql, $key);
 
-        $mark = $pdo->prepare('INSERT INTO schema_migrations (migration_key) VALUES (:key)');
-        $mark->execute([':key' => $key]);
+            $mark = $pdo->prepare('INSERT INTO schema_migrations (migration_key) VALUES (:key)');
+            $mark->execute([':key' => $key]);
+
+            panicDbBootstrapLog('db_migration_apply_success', [
+                'migration' => $key,
+            ]);
+        } catch (Throwable $e) {
+            panicDbBootstrapLog('db_migration_apply_failed', [
+                'migration' => $key,
+                'error' => $e->getMessage(),
+                'type' => get_class($e),
+            ], 'error');
+            throw $e;
+        }
     }
 }
 
@@ -52,17 +107,31 @@ function panicDbHasMigration(PDO $pdo, string $key): bool {
     return (bool)$stmt->fetchColumn();
 }
 
-function panicDbExecSqlBatch(PDO $pdo, string $sql): void {
+function panicDbExecSqlBatch(PDO $pdo, string $sql, string $migrationKey = ''): void {
     $sql = preg_replace('/^\s*--.*$/m', '', $sql) ?? $sql;
     $sql = preg_replace('!/\*.*?\*/!s', '', $sql) ?? $sql;
 
     $parts = preg_split('/;\s*(?:\r?\n|$)/', $sql) ?: [];
+    $statementIndex = 0;
     foreach ($parts as $part) {
         $statement = trim($part);
         if ($statement === '') {
             continue;
         }
-        $pdo->exec($statement);
+
+        $statementIndex++;
+        try {
+            $pdo->exec($statement);
+        } catch (Throwable $e) {
+            panicDbBootstrapLog('db_migration_statement_failed', [
+                'migration' => $migrationKey,
+                'statement_index' => $statementIndex,
+                'statement_preview' => substr($statement, 0, 160),
+                'error' => $e->getMessage(),
+                'type' => get_class($e),
+            ], 'error');
+            throw $e;
+        }
     }
 }
 
@@ -85,6 +154,10 @@ function panicDbApplyLegacyColumnPatches(PDO $pdo): void {
             $pdo->exec($sql);
         } catch (PDOException $e) {
             // Ignore duplicate-column errors on already-migrated databases.
+            panicDbBootstrapLog('db_legacy_patch_skip', [
+                'sql' => $sql,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

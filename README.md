@@ -82,6 +82,8 @@ Use environment variables (single switch point):
 - `PB_DB_DRIVER=sqlite|mysql`
 - `PB_DB_PATH=/absolute/path/to/booking.db` (sqlite)
 - `PB_DB_HOST`, `PB_DB_PORT`, `PB_DB_NAME`, `PB_DB_USER`, `PB_DB_PASS`, `PB_DB_CHARSET` (mysql)
+- `PB_DB_BOOTSTRAP_DEBUG=1` enables verbose migration/bootstrap logging
+- `PB_DB_DEBUG=1` enables DB connection logging (secrets redacted)
 
 If no variables are set, app defaults to SQLite at `data/booking.db`.
 
@@ -267,6 +269,14 @@ New tables:
    - Set `PB_DB_HOST`, `PB_DB_PORT`, `PB_DB_NAME`, `PB_DB_USER`, `PB_DB_PASS`, and optionally `PB_DB_CHARSET`.
 4. First request/script run auto-applies bootstrap migrations for the selected driver.
 5. Maintenance scripts now use the same central DB bootstrap path as app/API.
+
+## DB Troubleshooting
+
+- Run the built-in bootstrap diagnostic:
+  - `php scripts/debug_db_bootstrap.php`
+- Force one-shot bootstrap:
+  - `php -r 'require __DIR__ . "/api/includes/db.php"; echo "bootstrap ok\n";'`
+- Set `PB_DB_BOOTSTRAP_DEBUG=1` to emit per-migration logs via `panicLog`.
 
 ## Migration Caveats / TODOs
 

@@ -56,6 +56,18 @@ function panicDbConfig(): array {
     ];
 }
 
+function panicDbDebugEnabled(): bool {
+    return panicEnvBool('PB_DB_DEBUG', false) || panicEnvBool('PB_DB_BOOTSTRAP_DEBUG', false) || panicDebugEnabled();
+}
+
+function panicDbRedactedConfig(array $config): array {
+    $safe = $config;
+    if (isset($safe['password']) && $safe['password'] !== null && $safe['password'] !== '') {
+        $safe['password'] = '[redacted]';
+    }
+    return $safe;
+}
+
 function panicConnectPdo(?array $config = null): PDO {
     $config = $config ?: panicDbConfig();
 
@@ -70,10 +82,31 @@ function panicConnectPdo(?array $config = null): PDO {
         $options[PDO::MYSQL_ATTR_MULTI_STATEMENTS] = false;
     }
 
-    $pdo = new PDO($config['dsn'], $config['username'] ?? null, $config['password'] ?? null, $options);
+    if (panicDbDebugEnabled()) {
+        panicLog('db_connect_attempt', [
+            'config' => panicDbRedactedConfig($config),
+        ]);
+    }
+
+    try {
+        $pdo = new PDO($config['dsn'], $config['username'] ?? null, $config['password'] ?? null, $options);
+    } catch (PDOException $e) {
+        panicLog('db_connect_failed', [
+            'config' => panicDbRedactedConfig($config),
+            'error' => $e->getMessage(),
+            'code' => (string)$e->getCode(),
+        ], 'error');
+        throw $e;
+    }
 
     if (($config['driver'] ?? '') === 'sqlite') {
         $pdo->exec('PRAGMA foreign_keys = ON;');
+    }
+
+    if (panicDbDebugEnabled()) {
+        panicLog('db_connect_success', [
+            'driver' => (string)($config['driver'] ?? ''),
+        ]);
     }
 
     return $pdo;

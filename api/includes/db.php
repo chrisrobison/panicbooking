@@ -7,7 +7,23 @@ require_once __DIR__ . '/../../lib/db_bootstrap.php';
 try {
     $pdo = panicDb();
     panicDbBootstrap($pdo);
-} catch (PDOException $e) {
+} catch (Throwable $e) {
+    $config = [];
+    if (function_exists('panicDbConfig')) {
+        $config = panicDbConfig();
+    }
+    if (function_exists('panicDbRedactedConfig')) {
+        $config = panicDbRedactedConfig($config);
+    } elseif (isset($config['password'])) {
+        $config['password'] = '[redacted]';
+    }
+
+    panicLog('db_bootstrap_failed', [
+        'error' => $e->getMessage(),
+        'type' => get_class($e),
+        'config' => $config,
+    ], 'error');
+
     http_response_code(500);
     echo json_encode(['error' => 'Database connection failed']);
     exit;
