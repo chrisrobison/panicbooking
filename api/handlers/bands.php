@@ -12,7 +12,7 @@ function handleBandsList(PDO $pdo): void {
     $limit     = min(50, max(1, (int)($_GET['limit'] ?? 24)));
 
     $params = [];
-    $where  = ["u.type = 'band'"];
+    $where  = ["u.type = 'band'", "COALESCE(p.is_archived, 0) = 0"];
 
     if ($q !== '') {
         $where[]      = "p.data LIKE :q";
@@ -62,7 +62,7 @@ function handleBandsList(PDO $pdo): void {
     $whereClause = implode(' AND ', $where);
 
     $sql = "
-        SELECT u.id, u.email, u.created_at, p.data, p.is_generic, p.is_claimed
+        SELECT u.id, u.email, u.created_at, p.data, p.is_generic, p.is_claimed, COALESCE(p.is_archived, 0) AS is_archived
         FROM users u
         JOIN profiles p ON p.user_id = u.id
         {$join}
@@ -95,6 +95,7 @@ function handleBandsList(PDO $pdo): void {
             'created_at' => $row['created_at'],
             'is_generic' => (bool)$row['is_generic'],
             'is_claimed' => (bool)$row['is_claimed'],
+            'is_archived' => (bool)$row['is_archived'],
         ], $data);
     }, $rows);
 
@@ -103,10 +104,10 @@ function handleBandsList(PDO $pdo): void {
 
 function handleBandsGet(PDO $pdo, int $id): void {
     $stmt = $pdo->prepare("
-        SELECT u.id, u.email, u.created_at, p.data, p.is_generic, p.is_claimed
+        SELECT u.id, u.email, u.created_at, p.data, p.is_generic, p.is_claimed, COALESCE(p.is_archived, 0) AS is_archived
         FROM users u
         JOIN profiles p ON p.user_id = u.id
-        WHERE u.id = ? AND u.type = 'band'
+        WHERE u.id = ? AND u.type = 'band' AND COALESCE(p.is_archived, 0) = 0
     ");
     $stmt->execute([$id]);
     $row = $stmt->fetch();
@@ -122,6 +123,7 @@ function handleBandsGet(PDO $pdo, int $id): void {
         'created_at' => $row['created_at'],
         'is_generic' => (bool)$row['is_generic'],
         'is_claimed' => (bool)$row['is_claimed'],
+        'is_archived' => (bool)$row['is_archived'],
     ], $data);
 
     jsonResponse(['band' => $band]);

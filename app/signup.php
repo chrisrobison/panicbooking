@@ -2,6 +2,21 @@
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 
+function normalizeNextPath(?string $next): string {
+    $next = trim((string)$next);
+    if ($next === '' || $next[0] !== '/' || substr($next, 0, 2) === '//') {
+        return '/app/profile.php?new=1';
+    }
+    return $next;
+}
+
+$nextPath = normalizeNextPath($_GET['next'] ?? $_POST['next'] ?? '/app/profile.php?new=1');
+$defaultType = $_GET['type'] ?? '';
+if (!in_array($defaultType, ['band', 'venue'], true)) {
+    $defaultType = '';
+}
+$selectedType = $_POST['type'] ?? $defaultType;
+
 if (isLoggedIn()) {
     header('Location: /app/dashboard.php');
     exit;
@@ -14,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = strtolower(trim($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm_password'] ?? '';
-    $type     = $_POST['type'] ?? '';
+    $type     = $selectedType;
 
     if ($email === '' || $password === '' || $confirm === '' || $type === '') {
         $error = 'Please fill in all fields.';
@@ -60,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$userId, $type, $defaultData]);
 
             login($userId, $email, $type);
-            header('Location: /app/profile.php?new=1');
+            header('Location: ' . $nextPath);
             exit;
         }
     }
@@ -92,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" action="/app/signup.php" class="auth-form">
+                <input type="hidden" name="next" value="<?= htmlspecialchars($nextPath) ?>">
                 <div class="form-group">
                     <label for="email">Email address</label>
                     <input type="email" id="email" name="email" required
@@ -111,16 +127,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <label>I am a...</label>
                     <div class="type-selector">
-                        <label class="type-option <?= (($_POST['type'] ?? '') === 'band') ? 'selected' : '' ?>">
+                        <label class="type-option <?= ($selectedType === 'band') ? 'selected' : '' ?>">
                             <input type="radio" name="type" value="band"
-                                   <?= (($_POST['type'] ?? '') === 'band') ? 'checked' : '' ?>>
+                                   <?= ($selectedType === 'band') ? 'checked' : '' ?>>
                             <span class="type-icon">🎸</span>
                             <span class="type-label">Band / Artist</span>
                             <span class="type-desc">I'm looking for gigs</span>
                         </label>
-                        <label class="type-option <?= (($_POST['type'] ?? '') === 'venue') ? 'selected' : '' ?>">
+                        <label class="type-option <?= ($selectedType === 'venue') ? 'selected' : '' ?>">
                             <input type="radio" name="type" value="venue"
-                                   <?= (($_POST['type'] ?? '') === 'venue') ? 'checked' : '' ?>>
+                                   <?= ($selectedType === 'venue') ? 'checked' : '' ?>>
                             <span class="type-icon">🏛</span>
                             <span class="type-label">Venue</span>
                             <span class="type-desc">I'm booking artists</span>
@@ -131,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
 
             <p class="auth-switch">
-                Already have an account? <a href="/app/login.php">Sign in</a>
+                Already have an account? <a href="/app/login.php?next=<?= urlencode($nextPath) ?>">Sign in</a>
             </p>
         </div>
     </div>

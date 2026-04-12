@@ -40,6 +40,7 @@ require_once __DIR__ . '/handlers/users.php';
 require_once __DIR__ . '/handlers/bookings.php';
 require_once __DIR__ . '/handlers/scores.php';
 require_once __DIR__ . '/handlers/admin.php';
+require_once __DIR__ . '/handlers/claims.php';
 require_once __DIR__ . '/handlers/ticketing.php';
 require_once __DIR__ . '/handlers/payments.php';
 
@@ -208,6 +209,25 @@ if ($resource === 'dark-nights' && $method === 'GET') {
         errorResponse('Not found', 404);
     }
 
+// --- Claims ---
+} elseif ($resource === 'claims') {
+    if ($sub === '' && $method === 'POST') {
+        handleClaimsCreate($pdo);
+    } elseif ($sub === 'mine' && $method === 'GET') {
+        handleClaimsMineList($pdo);
+    } elseif ($id !== null) {
+        $claimSub = $segments[2] ?? '';
+        if ($claimSub === '' && $method === 'GET') {
+            handleClaimsMineGet($pdo, $id);
+        } elseif ($claimSub === 'cancel' && ($method === 'POST' || $method === 'PUT')) {
+            handleClaimsCancel($pdo, $id);
+        } else {
+            errorResponse('Not found', 404);
+        }
+    } else {
+        errorResponse('Not found', 404);
+    }
+
 // --- Scores ---
 } elseif ($resource === 'scores') {
     if ($id === null && $sub === '') {
@@ -224,7 +244,8 @@ if ($resource === 'dark-nights' && $method === 'GET') {
 
 // --- Admin ---
 } elseif ($resource === 'admin') {
-    // $sub = 'users', $segments[2] = id, $segments[3] = 'admin'
+    // users:  /api/admin/users/{id}/admin
+    // claims: /api/admin/claims/{id}/approve
     $adminId  = isset($segments[2]) && is_numeric($segments[2]) ? (int)$segments[2] : null;
     $adminSub = $segments[3] ?? '';
 
@@ -239,6 +260,21 @@ if ($resource === 'dark-nights' && $method === 'GET') {
         } else {
             if ($method === 'DELETE') handleAdminDeleteUser($pdo, $adminId);
             else errorResponse('Method not allowed', 405);
+        }
+    } elseif ($sub === 'claims') {
+        if ($adminId === null) {
+            if ($method === 'GET') handleAdminClaimsList($pdo);
+            else errorResponse('Method not allowed', 405);
+        } else {
+            if ($adminSub === '' && $method === 'GET') {
+                handleAdminClaimGet($pdo, $adminId);
+            } elseif ($adminSub === 'approve' && ($method === 'POST' || $method === 'PUT')) {
+                handleAdminClaimApprove($pdo, $adminId);
+            } elseif ($adminSub === 'reject' && ($method === 'POST' || $method === 'PUT')) {
+                handleAdminClaimReject($pdo, $adminId);
+            } else {
+                errorResponse('Method not allowed', 405);
+            }
         }
     } else {
         errorResponse('Not found', 404);

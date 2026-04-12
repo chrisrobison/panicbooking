@@ -73,7 +73,10 @@ $currentPage = 'admin';
     <main class="main-content">
         <div class="page-header">
             <h1 class="page-title">Admin Panel</h1>
-            <span class="badge badge-admin">Admin</span>
+            <div style="display:flex;gap:.6rem;align-items:center">
+                <a href="/app/admin/claims.php" class="btn btn-sm">Review Claims</a>
+                <span class="badge badge-admin">Admin</span>
+            </div>
         </div>
 
         <!-- Tabs -->

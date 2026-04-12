@@ -24,7 +24,7 @@ function saveProfile(PDO $pdo, int $userId, string $type, array $data): void {
 
 function getBands(PDO $pdo, string $q = '', string $genre = ''): array {
     $params = [];
-    $where  = ["u.type = 'band'"];
+    $where  = ["u.type = 'band'", "COALESCE(p.is_archived, 0) = 0"];
 
     if ($q !== '') {
         $where[]  = "(p.data LIKE :q)";
@@ -55,7 +55,7 @@ function getBands(PDO $pdo, string $q = '', string $genre = ''): array {
 
 function getVenues(PDO $pdo, string $q = '', string $neighborhood = ''): array {
     $params = [];
-    $where  = ["u.type = 'venue'"];
+    $where  = ["u.type = 'venue'", "COALESCE(p.is_archived, 0) = 0"];
 
     if ($q !== '') {
         $where[]      = "(p.data LIKE :q)";

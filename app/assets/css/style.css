@@ -763,6 +763,17 @@ code {
   margin-top: auto;
   align-self: flex-start;
 }
+.card-cta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+}
+.card-inline-claim {
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 /* Seeking gigs badge */
 .badge-seeking {
@@ -931,6 +942,44 @@ code {
 .claim-banner-text { display: flex; flex-direction: column; gap: 0.2rem; }
 .claim-banner-text strong { color: var(--text); font-size: 0.95rem; }
 .claim-banner-text span { color: var(--text-muted); font-size: 0.82rem; }
+
+.claim-page-card {
+  cursor: default;
+  gap: 1rem;
+}
+.claim-page-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+.claim-page-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.claim-page-title {
+  font-size: 1.35rem;
+  color: var(--text);
+}
+.claim-page-subtitle {
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+  font-size: 0.88rem;
+}
+.claim-page-help {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.claim-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+}
+.form-group-full {
+  grid-column: 1 / -1;
+}
 
 .modal-title {
   font-size: 1.75rem;
@@ -1257,6 +1306,11 @@ code {
   color: white;
   border-color: #9c27b0;
 }
+.badge-admin {
+  background: #9c27b0;
+  color: #fff;
+  border: 1px solid rgba(156,39,176,0.35);
+}
 
 .modal-admin-actions {
   display: flex;
@@ -1431,6 +1485,7 @@ code {
   .cta-banner { flex-direction: column; align-items: flex-start; }
 
   .type-selector { grid-template-columns: 1fr; }
+  .claim-form-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {

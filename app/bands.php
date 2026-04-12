@@ -97,7 +97,13 @@ $genres = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Country',
     </div>
 
     <div id="toast" class="toast"></div>
-    <script>window.APP_IS_ADMIN = <?= isAdmin() ? 'true' : 'false' ?>;</script>
+    <script>
+        window.APP_IS_ADMIN = <?= isAdmin() ? 'true' : 'false' ?>;
+        window.APP_USER = {
+            loggedIn: <?= $user ? 'true' : 'false' ?>,
+            type: <?= json_encode($user['type'] ?? '') ?>
+        };
+    </script>
     <script src="/app/assets/js/app.js"></script>
     <script>
     (function () {
@@ -216,6 +222,9 @@ $genres = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Country',
                 ? '<span class="badge badge-unclaimed">Unclaimed</span>' : '';
             const claimedBadge = band.is_claimed
                 ? '<span class="badge badge-claimed">✓ Claimed</span>' : '';
+            const claimBtn = (band.is_generic && !band.is_claimed)
+                ? `<a href="/app/claim.php?type=band&id=${band.id}" class="btn btn-primary btn-sm card-inline-claim" onclick="event.stopPropagation()">${window.APP_USER && window.APP_USER.loggedIn ? 'Claim' : 'Log In to Claim'}</a>`
+                : '';
 
             let scoreLine = '';
             if (band.is_generic) {
@@ -243,7 +252,10 @@ $genres = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Country',
                     ${band.experience ? `<span class="tag tag-exp">${escHtml(band.experience)}</span>` : ''}
                 </div>
                 ${desc}
-                <span class="card-cta">View profile →</span>
+                <div class="card-cta-row">
+                    <span class="card-cta">View profile →</span>
+                    ${claimBtn}
+                </div>
             </div>`;
         }
 

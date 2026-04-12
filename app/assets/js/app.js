@@ -4,6 +4,12 @@
 
 // Populated by PHP on pages that include user context
 const APP_IS_ADMIN = window.APP_IS_ADMIN || false;
+const APP_USER = window.APP_USER || { loggedIn: false, type: '' };
+const APP_IS_LOGGED_IN = !!APP_USER.loggedIn;
+
+function claimProfileHref(type, id) {
+    return `/app/claim.php?type=${encodeURIComponent(type)}&id=${encodeURIComponent(String(id))}`;
+}
 
 // --- Utility: HTML escape ---
 function escHtml(str) {
@@ -132,7 +138,7 @@ function renderBandDetail(band) {
             <strong>Are you ${escHtml(band.name || 'this band')}?</strong>
             <span>Claim this profile to edit your info, add booking details, and get discovered.</span>
         </div>
-        <a href="/app/signup.php" class="btn btn-primary btn-sm">Claim Profile →</a>
+        <a href="${claimProfileHref('band', band.id)}" class="btn btn-primary btn-sm">${APP_IS_LOGGED_IN ? 'Claim Profile →' : 'Log In to Claim →'}</a>
     </div>` : '';
 
     return `
@@ -235,6 +241,14 @@ function renderVenueDetail(v) {
     const genres = (v.genres_welcomed || []).map(g => `<span class="tag">${escHtml(g)}</span>`).join('');
     const lm = v.open_to_last_minute
         ? '<span class="badge badge-lastminute">⚡ Open to Last Minute</span>' : '';
+    const claimBanner = (v.is_generic && !v.is_claimed) ? `
+    <div class="claim-banner">
+        <div class="claim-banner-text">
+            <strong>Do you manage ${escHtml(v.name || 'this venue')}?</strong>
+            <span>Claim this seeded venue profile to update details and manage bookings.</span>
+        </div>
+        <a href="${claimProfileHref('venue', v.id)}" class="btn btn-primary btn-sm">${APP_IS_LOGGED_IN ? 'Claim Profile →' : 'Log In to Claim →'}</a>
+    </div>` : '';
 
     const equipment = [];
     if (v.has_pa)      equipment.push('PA System');
@@ -252,6 +266,7 @@ function renderVenueDetail(v) {
     ]);
 
     return `
+    ${claimBanner}
     <div class="modal-title">${escHtml(v.name || 'Unnamed Venue')}</div>
     <div class="modal-subtitle">
         ${v.neighborhood ? `🏘 ${escHtml(v.neighborhood)}` : ''}

@@ -11,14 +11,14 @@ $profileData = $profile['data'] ?? [];
 $displayName = $profileData['name'] ?? '';
 
 // Stats
-$totalBands  = $pdo->query("SELECT COUNT(*) FROM users WHERE type='band'")->fetchColumn();
-$totalVenues = $pdo->query("SELECT COUNT(*) FROM users WHERE type='venue'")->fetchColumn();
+$totalBands  = $pdo->query("SELECT COUNT(*) FROM users u JOIN profiles p ON p.user_id = u.id WHERE u.type='band' AND COALESCE(p.is_archived, 0) = 0")->fetchColumn();
+$totalVenues = $pdo->query("SELECT COUNT(*) FROM users u JOIN profiles p ON p.user_id = u.id WHERE u.type='venue' AND COALESCE(p.is_archived, 0) = 0")->fetchColumn();
 
 // Recent bands (last 5)
 $recentBands = $pdo->query("
     SELECT u.id, p.data, p.updated_at FROM users u
     JOIN profiles p ON p.user_id = u.id
-    WHERE u.type = 'band'
+    WHERE u.type = 'band' AND COALESCE(p.is_archived, 0) = 0
     ORDER BY p.updated_at DESC LIMIT 5
 ")->fetchAll();
 
@@ -26,7 +26,7 @@ $recentBands = $pdo->query("
 $recentVenues = $pdo->query("
     SELECT u.id, p.data, p.updated_at FROM users u
     JOIN profiles p ON p.user_id = u.id
-    WHERE u.type = 'venue'
+    WHERE u.type = 'venue' AND COALESCE(p.is_archived, 0) = 0
     ORDER BY p.updated_at DESC LIMIT 5
 ")->fetchAll();
 

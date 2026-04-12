@@ -2,12 +2,21 @@
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 
+function normalizeNextPath(?string $next): string {
+    $next = trim((string)$next);
+    if ($next === '' || $next[0] !== '/' || substr($next, 0, 2) === '//') {
+        return '/app/dashboard.php';
+    }
+    return $next;
+}
+
 if (isLoggedIn()) {
     header('Location: /app/dashboard.php');
     exit;
 }
 
 $error = '';
+$nextPath = normalizeNextPath($_GET['next'] ?? $_POST['next'] ?? '/app/dashboard.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = trim($_POST['email'] ?? '');
@@ -22,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($user && password_verify($password, $user['password_hash'])) {
             login((int)$user['id'], $user['email'], $user['type'], (bool)$user['is_admin']);
-            header('Location: /app/dashboard.php');
+            header('Location: ' . $nextPath);
             exit;
         } else {
             $error = 'Invalid email or password.';
@@ -56,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" action="/app/login.php" class="auth-form">
+                <input type="hidden" name="next" value="<?= htmlspecialchars($nextPath) ?>">
                 <div class="form-group">
                     <label for="email">Email address</label>
                     <input type="email" id="email" name="email" required
@@ -71,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
 
             <p class="auth-switch">
-                Don't have an account? <a href="/app/signup.php">Create one</a>
+                Don't have an account? <a href="/app/signup.php?next=<?= urlencode($nextPath) ?>">Create one</a>
             </p>
 
             <div class="auth-demo">

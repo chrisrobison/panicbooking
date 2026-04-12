@@ -130,10 +130,10 @@ $insertUser   = $pdo->prepare(
     "INSERT OR IGNORE INTO users (email, password_hash, type) VALUES (?, ?, 'venue')"
 );
 $insertProfile = $pdo->prepare(
-    "INSERT OR IGNORE INTO profiles (user_id, type, data) VALUES (?, 'venue', ?)"
+    "INSERT OR IGNORE INTO profiles (user_id, type, data, is_generic, is_claimed) VALUES (?, 'venue', ?, 1, 0)"
 );
 
-$demoPassword = password_hash('demo1234', PASSWORD_DEFAULT);
+$genericHash = '*GENERIC*' . bin2hex(random_bytes(16));
 
 // ── Import loop ───────────────────────────────────────────────────────────────
 $imported = 0;
@@ -198,7 +198,7 @@ foreach ($venues as $v) {
     ];
 
     // Insert user row
-    $insertUser->execute([$email, $demoPassword]);
+    $insertUser->execute([$email, $genericHash]);
     $userId = $pdo->lastInsertId();
 
     if (!$userId) {
@@ -217,5 +217,5 @@ foreach ($venues as $v) {
 out(str_repeat('-', 60));
 out("Done. Imported: $imported  |  Skipped/existing: $skipped");
 out("");
-out("All imported venue accounts use password: demo1234");
-out("Login emails follow the pattern: venue-name-slug@venue.panicbooking.local");
+out("Imported venues are seeded as unclaimed profiles and require claim approval.");
+out("Login emails follow the pattern: venue-name-slug@venue.panicbooking.local (not directly usable).");

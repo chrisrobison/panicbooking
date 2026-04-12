@@ -10,6 +10,7 @@ function handleAdminListUsers(PDO $pdo): void {
 
     $type   = trim($_GET['type'] ?? '');
     $q      = trim($_GET['q']    ?? '');
+    $includeArchived = isset($_GET['include_archived']) && $_GET['include_archived'] === '1';
     $offset = max(0, (int)($_GET['offset'] ?? 0));
     $limit  = min(100, max(1, (int)($_GET['limit'] ?? 50)));
 
@@ -24,6 +25,9 @@ function handleAdminListUsers(PDO $pdo): void {
         $where[]       = "(u.email LIKE :q OR p.data LIKE :q2)";
         $params[':q']  = '%' . $q . '%';
         $params[':q2'] = '%' . $q . '%';
+    }
+    if (!$includeArchived) {
+        $where[] = "COALESCE(p.is_archived, 0) = 0";
     }
 
     $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -43,7 +47,10 @@ function handleAdminListUsers(PDO $pdo): void {
                json_extract(p.data, '$.neighborhood') AS neighborhood,
                json_extract(p.data, '$.capacity')     AS capacity,
                json_extract(p.data, '$.genres')       AS genres_json,
-               json_extract(p.data, '$.genres_welcomed') AS genres_welcomed_json
+               json_extract(p.data, '$.genres_welcomed') AS genres_welcomed_json,
+               COALESCE(p.is_generic, 0) AS is_generic,
+               COALESCE(p.is_claimed, 0) AS is_claimed,
+               COALESCE(p.is_archived, 0) AS is_archived
         FROM users u
         LEFT JOIN profiles p ON p.user_id = u.id
         {$whereClause}
@@ -72,6 +79,9 @@ function handleAdminListUsers(PDO $pdo): void {
             'neighborhood' => $r['neighborhood'] ?? '',
             'capacity'     => (int)($r['capacity'] ?? 0),
             'genres'       => $genres,
+            'is_generic'   => (bool)$r['is_generic'],
+            'is_claimed'   => (bool)$r['is_claimed'],
+            'is_archived'  => (bool)$r['is_archived'],
             'created_at'   => $r['created_at'],
         ];
     }, $rows);

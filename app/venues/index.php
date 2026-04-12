@@ -93,7 +93,13 @@ $genres        = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Co
     </div>
 
     <div id="toast" class="toast"></div>
-    <script>window.APP_IS_ADMIN = <?= isAdmin() ? 'true' : 'false' ?>;</script>
+    <script>
+        window.APP_IS_ADMIN = <?= isAdmin() ? 'true' : 'false' ?>;
+        window.APP_USER = {
+            loggedIn: <?= $user ? 'true' : 'false' ?>,
+            type: <?= json_encode($user['type'] ?? '') ?>
+        };
+    </script>
     <script src="/app/assets/js/app.js"></script>
     <script>
     (function () {
@@ -201,6 +207,10 @@ $genres        = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Co
             const genres = (v.genres_welcomed || []).map(g => `<span class="tag">${escHtml(g)}</span>`).join('');
             const lm     = v.open_to_last_minute
                 ? '<span class="badge badge-lastminute">⚡ Last Minute</span>' : '';
+            const unclaimedBadge = v.is_generic && !v.is_claimed
+                ? '<span class="badge badge-unclaimed">Unclaimed</span>' : '';
+            const claimedBadge = v.is_claimed
+                ? '<span class="badge badge-claimed">✓ Claimed</span>' : '';
 
             const equip = [];
             if (v.has_pa)       equip.push('PA');
@@ -209,12 +219,15 @@ $genres        = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Co
 
             const capLabel = v.capacity
                 ? `<span class="cap-pill cap-${capTier(v.capacity)}">👥 ${v.capacity.toLocaleString()}</span>` : '';
+            const claimBtn = (v.is_generic && !v.is_claimed)
+                ? `<a href="/app/claim.php?type=venue&id=${v.id}" class="btn btn-primary btn-sm card-inline-claim" onclick="event.stopPropagation()">${window.APP_USER && window.APP_USER.loggedIn ? 'Claim' : 'Log In to Claim'}</a>`
+                : '';
 
             return `
             <div class="card venue-card" onclick="openDetailModal('venue',${v.id})">
                 <div class="card-header">
                     <h3 class="card-title">${escHtml(v.name || 'Unnamed Venue')}</h3>
-                    <div class="card-badges">${lm}</div>
+                    <div class="card-badges">${lm}${unclaimedBadge}${claimedBadge}</div>
                 </div>
                 <div class="card-tags">
                     ${v.neighborhood ? `<span class="tag tag-venue">${escHtml(v.neighborhood)}</span>` : ''}
@@ -226,7 +239,10 @@ $genres        = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Co
                     ${equip.length   ? `<span>🔊 ${escHtml(equip.join(', '))}</span>` : ''}
                 </div>
                 ${v.description ? `<p class="card-desc">${escHtml(v.description.substring(0,110))}${v.description.length > 110 ? '…' : ''}</p>` : ''}
-                <span class="card-cta">View details →</span>
+                <div class="card-cta-row">
+                    <span class="card-cta">View details →</span>
+                    ${claimBtn}
+                </div>
             </div>`;
         }
 
