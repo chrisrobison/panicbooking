@@ -28,6 +28,8 @@ if ($status === 'paid') {
 }
 
 $eventUrl = '/event.php?slug=' . urlencode((string)($order['event_slug'] ?? ''));
+$provider = strtolower(trim((string)($order['payment_provider'] ?? 'payment')));
+$providerLabel = $provider === 'square' ? 'Square' : ($provider === 'stripe' ? 'Stripe' : 'payment');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -45,7 +47,7 @@ $eventUrl = '/event.php?slug=' . urlencode((string)($order['event_slug'] ?? ''))
     <div class="card-form">
         <h1 class="page-title">Checkout Canceled</h1>
         <div class="alert alert-warning" style="margin:1rem 0;">
-            Your payment session was canceled. No tickets are issued unless a successful Stripe webhook marks this order paid.
+            Your payment session was canceled. No tickets are issued unless a successful <?= htmlspecialchars($providerLabel) ?> webhook marks this order paid.
         </div>
         <p><strong>Order:</strong> #<?= (int)$order['id'] ?></p>
         <p><strong>Status:</strong> <?= htmlspecialchars(strtoupper($status)) ?></p>

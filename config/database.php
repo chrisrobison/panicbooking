@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+panicLoadEnvFiles();
 require_once __DIR__ . '/../lib/security.php';
 
 if (!panicDebugEnabled()) {

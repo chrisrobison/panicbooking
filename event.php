@@ -15,7 +15,7 @@ if (!$event) {
 }
 
 $ticketTypes = ticketingGetTicketTypes($pdo, (int)$event['id'], false);
-$paymentMode = paymentMode();
+$paymentProvider = paymentProvider();
 $error = '';
 
 $defaultName = '';
@@ -98,9 +98,13 @@ function fmtDate(?string $value): string {
             <p style="margin-bottom:1rem;"><?= nl2br(htmlspecialchars((string)$event['description'])) ?></p>
         <?php endif; ?>
 
-        <?php if ($paymentMode === 'demo'): ?>
+        <?php if ($paymentProvider === 'demo'): ?>
             <div class="alert alert-info" style="margin-bottom:1rem;">
                 Demo payment mode is active. Submitting this form creates a paid order and issues tickets immediately.
+            </div>
+        <?php elseif ($paymentProvider === 'square'): ?>
+            <div class="alert alert-info" style="margin-bottom:1rem;">
+                Secure Square Checkout is enabled. Tickets are issued only after webhook-verified payment.
             </div>
         <?php else: ?>
             <div class="alert alert-info" style="margin-bottom:1rem;">

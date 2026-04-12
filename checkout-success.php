@@ -30,9 +30,23 @@ if ($status === 'paid') {
 
 $eventUrl = '/event.php?slug=' . urlencode((string)($order['event_slug'] ?? ''));
 
-function pbStatusMessage(string $status): array {
+function pbProviderLabel(string $provider): string {
+    $provider = strtolower(trim($provider));
+    if ($provider === 'stripe') {
+        return 'Stripe';
+    }
+    if ($provider === 'square') {
+        return 'Square';
+    }
+    if ($provider === 'demo') {
+        return 'demo';
+    }
+    return 'payment';
+}
+
+function pbStatusMessage(string $status, string $providerLabel): array {
     if ($status === 'pending') {
-        return ['type' => 'info', 'title' => 'Payment received', 'body' => 'We are waiting for Stripe webhook confirmation. Your tickets will appear automatically once payment is finalized.'];
+        return ['type' => 'info', 'title' => 'Payment received', 'body' => 'We are waiting for ' . $providerLabel . ' webhook confirmation. Your tickets will appear automatically once payment is finalized.'];
     }
     if ($status === 'failed') {
         return ['type' => 'error', 'title' => 'Payment failed', 'body' => 'The payment did not complete. You can return to the event page and try again.'];
@@ -47,7 +61,8 @@ function pbStatusMessage(string $status): array {
     return ['type' => 'info', 'title' => 'Order update pending', 'body' => 'Please refresh this page in a few seconds.'];
 }
 
-$state = pbStatusMessage($status);
+$providerLabel = pbProviderLabel((string)($order['payment_provider'] ?? ''));
+$state = pbStatusMessage($status, $providerLabel);
 $autoRefresh = $status === 'pending';
 ?>
 <!DOCTYPE html>

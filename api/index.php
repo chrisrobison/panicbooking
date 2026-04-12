@@ -335,6 +335,8 @@ if ($resource === 'dark-nights' && $method === 'GET') {
 } elseif ($resource === 'payments') {
     if ($sub === 'stripe_webhook' && $method === 'POST') {
         handlePaymentsStripeWebhook($pdo);
+    } elseif ($sub === 'square_webhook' && $method === 'POST') {
+        handlePaymentsSquareWebhook($pdo);
     } else {
         errorResponse('Not found', 404);
     }

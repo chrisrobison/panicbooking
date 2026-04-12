@@ -85,20 +85,32 @@ Use environment variables (single switch point):
 
 If no variables are set, app defaults to SQLite at `data/booking.db`.
 
+### Environment files
+- App now loads `.env` and `.env.local` from project root automatically.
+- Existing process-level env vars still take precedence.
+- See `.env.example` for available payment/provider settings.
+
 ### Demo seed data
 - `PB_ENABLE_DEMO_SEED=1` to insert demo users/profiles on bootstrap.
 - `PB_DEMO_SEED_PASSWORD=...` to set demo account password.
 - Demo users are **not** seeded unless explicitly enabled.
 
-### Payment mode
-- `PB_PAYMENT_MODE=demo` (default): creates paid orders immediately for development.
-- `PB_PAYMENT_MODE=stripe`: uses Stripe Checkout + webhook-confirmed order finalization.
-- `PB_PUBLIC_BASE_URL=https://your-domain.test` (recommended in Stripe mode for redirect/webhook URLs)
+### Payment provider
+- `PB_PAYMENT_PROVIDER=demo|stripe|square` (preferred switch; default is `demo`)
+- `PB_PAYMENT_MODE=...` remains supported as a legacy alias.
+- `PB_PUBLIC_BASE_URL=https://your-domain.test` (recommended for hosted checkout redirect/webhook URLs)
 - `PB_STRIPE_SECRET_KEY=sk_test_...`
 - `PB_STRIPE_PUBLISHABLE_KEY=pk_test_...` (optional for future client-side use)
 - `PB_STRIPE_WEBHOOK_SECRET=whsec_...`
 - `PB_STRIPE_WEBHOOK_TOLERANCE=300` (optional, seconds)
 - `PB_STRIPE_API_BASE=https://api.stripe.com/v1` (optional override)
+- `PB_SQUARE_ACCESS_TOKEN=...`
+- `PB_SQUARE_APPLICATION_ID=...` (optional; useful for future client-side flows)
+- `PB_SQUARE_LOCATION_ID=...`
+- `PB_SQUARE_WEBHOOK_SIGNATURE_KEY=...`
+- `PB_SQUARE_WEBHOOK_URL=https://your-domain.test/square-webhook.php` (must match Square dashboard webhook URL)
+- `PB_SQUARE_API_BASE=https://connect.squareup.com` (optional override)
+- `PB_SQUARE_API_VERSION=...` (optional; sends `Square-Version` header when set)
 - `PB_APP_KEY=...` recommended for receipt token HMAC and other app-level signing.
   - If `PB_APP_KEY` is not set, app auto-generates a local key file at `data/.app_key` (or `PB_APP_KEY_FILE` path).
 
@@ -145,6 +157,12 @@ If no variables are set, app defaults to SQLite at `data/booking.db`.
   3. buyer returns to `/checkout-success.php` or `/checkout-cancel.php`
   4. webhook verification is the source of truth for setting paid/failed/canceled/refunded
   5. tickets are issued only when webhook-confirmed payment calls finalization
+- In square mode:
+  1. pending order is created
+  2. Square Payment Link is created and buyer is redirected
+  3. buyer returns to `/checkout-success.php`
+  4. webhook verification is the source of truth for setting paid/failed/canceled/refunded
+  5. tickets are issued only when webhook-confirmed payment calls finalization
 
 ### Ticket and QR
 - `/order-success.php?order_id=...&receipt=...` renders one QR per ticket.
@@ -163,6 +181,13 @@ If no variables are set, app defaults to SQLite at `data/booking.db`.
 - Signature is verified using `PB_STRIPE_WEBHOOK_SECRET`.
 - Duplicate delivery is handled idempotently by `payment_webhook_events` (`provider + event_id` unique).
 
+### Square webhook
+- Primary endpoint: `/square-webhook.php`
+- API endpoint: `POST /api/payments/square_webhook`
+- Signature is verified using `x-square-hmacsha256-signature` + `PB_SQUARE_WEBHOOK_SIGNATURE_KEY`.
+- `PB_SQUARE_WEBHOOK_URL` must match the exact webhook URL registered with Square.
+- Duplicate delivery is handled idempotently by `payment_webhook_events` (`provider + event_id` unique).
+
 ## API Actions Added
 
 Under `/api/ticketing/...`:
@@ -179,6 +204,7 @@ Under `/api/ticketing/...`:
 
 Under `/api/payments/...`:
 - `POST stripe_webhook`
+- `POST square_webhook`
 
 ## Security and Robustness
 
@@ -187,8 +213,8 @@ Under `/api/payments/...`:
 - Permission checks enforce venue/admin ownership for event/ticket/check-in operations.
 - Inventory checks prevent overselling at payment-finalization time.
 - Conditional ticket update prevents duplicate check-ins.
-- Stripe webhook signatures are verified before processing.
-- Webhook events are logged with minimal metadata and deduplicated by Stripe event id.
+- Stripe/Square webhook signatures are verified before processing.
+- Webhook events are logged with minimal metadata and deduplicated by `(provider, event_id)`.
 - Ticket issuance remains inside a single transactional finalize path to prevent duplicate tickets.
 - Maintenance/import/Event Sync scripts are CLI-first; web execution is disabled by default.
   - To explicitly allow web execution: `PB_ALLOW_WEB_MAINTENANCE=1` and `PB_MAINTENANCE_TOKEN=...`
@@ -252,7 +278,7 @@ New tables:
 ## Local Stripe CLI Testing
 
 1. Set env vars:
-   - `PB_PAYMENT_MODE=stripe`
+   - `PB_PAYMENT_PROVIDER=stripe`
    - `PB_PUBLIC_BASE_URL=http://localhost:8000` (or your local URL)
    - `PB_STRIPE_SECRET_KEY=sk_test_...`
 2. Start PHP server (example): `php -S localhost:8000`

@@ -1,3 +1,5 @@
 config.local.php
 data/booking.db
 data/scrape.log
+.env
+.env.local
