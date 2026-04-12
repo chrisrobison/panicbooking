@@ -278,6 +278,14 @@ New tables:
   - `php -r 'require __DIR__ . "/api/includes/db.php"; echo "bootstrap ok\n";'`
 - Set `PB_DB_BOOTSTRAP_DEBUG=1` to emit per-migration logs via `panicLog`.
 
+## SQLite To MySQL Data Migration
+
+- Copy rows from SQLite into configured MySQL:
+  - `php scripts/migrate_sqlite_to_mysql.php --sqlite=/absolute/path/to/booking.db`
+- Default behavior clears destination tables first.
+- Use `--append` to keep destination rows and only insert non-conflicting rows.
+- Script expects MySQL env vars (`PB_DB_HOST`, `PB_DB_PORT`, `PB_DB_NAME`, `PB_DB_USER`, `PB_DB_PASS`, `PB_DB_CHARSET`) to be set.
+
 ## Migration Caveats / TODOs
 
 - MySQL bootstrap targets modern MySQL 8+ behavior (including `CHECK` constraints support).
