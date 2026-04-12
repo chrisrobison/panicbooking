@@ -40,6 +40,7 @@ require_once __DIR__ . '/handlers/users.php';
 require_once __DIR__ . '/handlers/bookings.php';
 require_once __DIR__ . '/handlers/scores.php';
 require_once __DIR__ . '/handlers/admin.php';
+require_once __DIR__ . '/handlers/ticketing.php';
 
 // Parse route
 $requestUri    = $_SERVER['REQUEST_URI'] ?? '/';
@@ -198,6 +199,30 @@ if ($resource === 'dark-nights' && $method === 'GET') {
             if ($method === 'DELETE') handleAdminDeleteUser($pdo, $adminId);
             else errorResponse('Method not allowed', 405);
         }
+    } else {
+        errorResponse('Not found', 404);
+    }
+
+// --- Ticketing ---
+} elseif ($resource === 'ticketing') {
+    if ($sub === 'create_event' && $method === 'POST') {
+        handleTicketingCreateEvent($pdo);
+    } elseif ($sub === 'update_event' && ($method === 'POST' || $method === 'PUT')) {
+        handleTicketingUpdateEvent($pdo);
+    } elseif ($sub === 'create_ticket_type' && $method === 'POST') {
+        handleTicketingCreateTicketType($pdo);
+    } elseif ($sub === 'update_ticket_type' && ($method === 'POST' || $method === 'PUT')) {
+        handleTicketingUpdateTicketType($pdo);
+    } elseif ($sub === 'create_order' && $method === 'POST') {
+        handleTicketingCreateOrder($pdo);
+    } elseif ($sub === 'mark_order_paid' && $method === 'POST') {
+        handleTicketingMarkOrderPaid($pdo);
+    } elseif ($sub === 'validate_ticket' && $method === 'POST') {
+        handleTicketingValidateTicket($pdo);
+    } elseif ($sub === 'check_in_ticket' && $method === 'POST') {
+        handleTicketingCheckInTicket($pdo);
+    } elseif ($sub === 'search_ticket_by_code' && $method === 'GET') {
+        handleTicketingSearchTicketByCode($pdo);
     } else {
         errorResponse('Not found', 404);
     }

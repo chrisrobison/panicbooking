@@ -5,6 +5,10 @@ $user = currentUser();
 $navItems = [];
 if ($user) {
     $navItems['dashboard'] = ['icon' => '🏠', 'label' => 'Dashboard', 'href' => '/app/dashboard.php'];
+    if ($user['type'] === 'venue' || isAdmin()) {
+        $navItems['events'] = ['icon' => '🎟️', 'label' => 'Ticketing', 'href' => '/app/events.php'];
+        $navItems['checkin'] = ['icon' => '📲', 'label' => 'Check-In', 'href' => '/app/checkin.php'];
+    }
 }
 $navItems['dark-nights'] = ['icon' => '🌑', 'label' => 'Dark Nights', 'href' => '/app/dark-nights.php'];
 $navItems['bands']       = ['icon' => '🎸', 'label' => 'Bands',       'href' => '/app/bands.php'];

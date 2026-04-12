@@ -1864,6 +1864,37 @@ code {
 .badge-source-ticketmaster { background: #2a1a3a; color: #c87ee3; }
 
 /* =====================================================
+   SHARED TABLES (Ticketing/Admin-like)
+   ===================================================== */
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.admin-table tr:hover td {
+  background: rgba(255,255,255,0.03);
+}
+
+/* =====================================================
    DARK NIGHTS PAGE
    ===================================================== */
 

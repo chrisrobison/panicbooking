@@ -55,3 +55,48 @@ function apiLogout(): void {
     }
     session_destroy();
 }
+
+function apiCsrfToken(): string {
+    if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function apiValidateCsrfToken(?string $token): bool {
+    if (!is_string($token) || $token === '') {
+        return false;
+    }
+    $sessionToken = $_SESSION['csrf_token'] ?? '';
+    return is_string($sessionToken) && hash_equals($sessionToken, $token);
+}
+
+function apiRequireCsrf(): void {
+    $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    $body = null;
+
+    if ($headerToken === '') {
+        $raw = file_get_contents('php://input');
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $body = $decoded;
+                $headerToken = (string)($decoded['csrf_token'] ?? '');
+            }
+        }
+    }
+
+    if ($headerToken === '' && isset($_POST['csrf_token'])) {
+        $headerToken = (string)$_POST['csrf_token'];
+    }
+
+    if (!apiValidateCsrfToken($headerToken)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid CSRF token']);
+        exit;
+    }
+
+    if ($body !== null) {
+        $GLOBALS['API_PARSED_JSON_BODY'] = $body;
+    }
+}

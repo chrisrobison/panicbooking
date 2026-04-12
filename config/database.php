@@ -1,0 +1,69 @@
+<?php
+
+/**
+ * Central DB configuration + connection helper.
+ *
+ * Environment variables:
+ * - PB_DB_DRIVER=sqlite|mysql
+ * - PB_DB_PATH=/abs/path/to/db.sqlite (sqlite)
+ * - PB_DB_HOST=127.0.0.1
+ * - PB_DB_PORT=3306
+ * - PB_DB_NAME=panicbooking
+ * - PB_DB_USER=root
+ * - PB_DB_PASS=secret
+ * - PB_DB_CHARSET=utf8mb4
+ */
+
+function panicDbConfig(): array {
+    $driver = strtolower(trim((string)(getenv('PB_DB_DRIVER') ?: 'sqlite')));
+    if ($driver !== 'mysql') {
+        $driver = 'sqlite';
+    }
+
+    if ($driver === 'mysql') {
+        $host    = (string)(getenv('PB_DB_HOST') ?: '127.0.0.1');
+        $port    = (int)(getenv('PB_DB_PORT') ?: 3306);
+        $dbName  = (string)(getenv('PB_DB_NAME') ?: 'panicbooking');
+        $user    = (string)(getenv('PB_DB_USER') ?: 'root');
+        $pass    = (string)(getenv('PB_DB_PASS') ?: '');
+        $charset = (string)(getenv('PB_DB_CHARSET') ?: 'utf8mb4');
+
+        $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s', $host, $port, $dbName, $charset);
+
+        return [
+            'driver'   => 'mysql',
+            'dsn'      => $dsn,
+            'username' => $user,
+            'password' => $pass,
+        ];
+    }
+
+    $dbPath = (string)(getenv('PB_DB_PATH') ?: (__DIR__ . '/../data/booking.db'));
+    return [
+        'driver'   => 'sqlite',
+        'dsn'      => 'sqlite:' . $dbPath,
+        'username' => null,
+        'password' => null,
+        'path'     => $dbPath,
+    ];
+}
+
+function panicConnectPdo(?array $config = null): PDO {
+    $config = $config ?: panicDbConfig();
+
+    $pdo = new PDO(
+        $config['dsn'],
+        $config['username'] ?? null,
+        $config['password'] ?? null,
+        [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]
+    );
+
+    if (($config['driver'] ?? '') === 'sqlite') {
+        $pdo->exec('PRAGMA foreign_keys = ON;');
+    }
+
+    return $pdo;
+}
