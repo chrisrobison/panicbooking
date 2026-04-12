@@ -108,14 +108,7 @@ function venues_parse_short_date(string $s): string {
 // Shared INSERT statement (all columns including source)
 // ------------------------------------------------------------
 
-$insertStmt = $pdo->prepare("
-    INSERT OR REPLACE INTO scraped_events
-        (event_date, venue_name, venue_city, bands, age_restriction, price,
-         doors_time, show_time, is_sold_out, is_ticketed, notes, raw_meta, source_url, source)
-    VALUES
-        (:event_date, :venue_name, :venue_city, :bands, :age_restriction, :price,
-         :doors_time, :show_time, :is_sold_out, :is_ticketed, :notes, :raw_meta, :source_url, :source)
-");
+$insertStmt = $pdo->prepare(panicScrapedEventsUpsertSql($pdo));
 
 // ------------------------------------------------------------
 // CLI / web argument

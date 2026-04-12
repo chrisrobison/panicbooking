@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../../lib/db_compat.php';
+
 function getProfile(PDO $pdo, int $userId): ?array {
     $stmt = $pdo->prepare("SELECT * FROM profiles WHERE user_id = ?");
     $stmt->execute([$userId]);
@@ -11,14 +13,25 @@ function getProfile(PDO $pdo, int $userId): ?array {
 
 function saveProfile(PDO $pdo, int $userId, string $type, array $data): void {
     $json = json_encode($data);
-    $stmt = $pdo->prepare("
-        INSERT INTO profiles (user_id, type, data, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id) DO UPDATE SET
-            type = excluded.type,
-            data = excluded.data,
-            updated_at = CURRENT_TIMESTAMP
-    ");
+    if (panicDbIsMysql($pdo)) {
+        $stmt = $pdo->prepare("
+            INSERT INTO profiles (user_id, type, data, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE
+                type = VALUES(type),
+                data = VALUES(data),
+                updated_at = CURRENT_TIMESTAMP
+        ");
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO profiles (user_id, type, data, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id) DO UPDATE SET
+                type = excluded.type,
+                data = excluded.data,
+                updated_at = CURRENT_TIMESTAMP
+        ");
+    }
     $stmt->execute([$userId, $type, $json]);
 }
 

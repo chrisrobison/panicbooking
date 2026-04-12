@@ -431,17 +431,30 @@ function claimApproveRequest(PDO $pdo, int $claimId, ?int $reviewerId, string $r
         ");
         $archiveEntityProfile->execute([$claimantUserId, $entityUserId]);
 
-        $linkEntity = $pdo->prepare("
-            INSERT INTO entity_links (
-                entity_type, source_user_id, target_user_id, link_type, notes, created_by_user_id
-            ) VALUES (?, ?, ?, 'claim_transfer', ?, ?)
-            ON CONFLICT(entity_type, source_user_id, link_type)
-            DO UPDATE SET
-                target_user_id = excluded.target_user_id,
-                notes = excluded.notes,
-                created_by_user_id = excluded.created_by_user_id,
-                created_at = CURRENT_TIMESTAMP
-        ");
+        if (panicDbIsMysql($pdo)) {
+            $linkEntity = $pdo->prepare("
+                INSERT INTO entity_links (
+                    entity_type, source_user_id, target_user_id, link_type, notes, created_by_user_id
+                ) VALUES (?, ?, ?, 'claim_transfer', ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    target_user_id = VALUES(target_user_id),
+                    notes = VALUES(notes),
+                    created_by_user_id = VALUES(created_by_user_id),
+                    created_at = CURRENT_TIMESTAMP
+            ");
+        } else {
+            $linkEntity = $pdo->prepare("
+                INSERT INTO entity_links (
+                    entity_type, source_user_id, target_user_id, link_type, notes, created_by_user_id
+                ) VALUES (?, ?, ?, 'claim_transfer', ?, ?)
+                ON CONFLICT(entity_type, source_user_id, link_type)
+                DO UPDATE SET
+                    target_user_id = excluded.target_user_id,
+                    notes = excluded.notes,
+                    created_by_user_id = excluded.created_by_user_id,
+                    created_at = CURRENT_TIMESTAMP
+            ");
+        }
         $linkEntity->execute([
             $entityType,
             $entityUserId,

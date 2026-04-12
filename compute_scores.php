@@ -56,17 +56,7 @@ const FILL_RATE = 0.35;
 // =====================================================
 // BOOTSTRAP DB
 // =====================================================
-$dbPath = __DIR__ . '/data/booking.db';
-try {
-    $pdo = new PDO('sqlite:' . $dbPath);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    $pdo->exec('PRAGMA foreign_keys = ON;');
-} catch (PDOException $e) {
-    die("DB connection failed: " . $e->getMessage() . "\n");
-}
-
-// Ensure tables exist (bootstrap via db.php logic)
+// Ensure connection + schema bootstrap (sqlite/mysql) are available.
 require_once __DIR__ . '/api/includes/db.php';
 
 // =====================================================
@@ -170,8 +160,8 @@ function getVenueTier(string $venueName): int {
 // =====================================================
 // PREPARE UPSERT STATEMENT
 // =====================================================
-$upsertSql = "
-INSERT OR REPLACE INTO performer_scores
+$upsertBase = "
+INSERT INTO performer_scores
   (band_name, draw_score, revenue_score, reliability_score, momentum_score,
    composite_score, avg_attendance, estimated_draw, shows_tracked,
    shows_last_30, shows_last_90, best_day, best_venue_tier, venue_tier_max,
@@ -186,6 +176,58 @@ VALUES
    :insight_draw, :insight_revenue, :insight_reliability, :insight_momentum,
    CURRENT_TIMESTAMP)
 ";
+
+if (panicDbIsMysql($pdo)) {
+    $upsertSql = $upsertBase . "
+ON DUPLICATE KEY UPDATE
+  draw_score = VALUES(draw_score),
+  revenue_score = VALUES(revenue_score),
+  reliability_score = VALUES(reliability_score),
+  momentum_score = VALUES(momentum_score),
+  composite_score = VALUES(composite_score),
+  avg_attendance = VALUES(avg_attendance),
+  estimated_draw = VALUES(estimated_draw),
+  shows_tracked = VALUES(shows_tracked),
+  shows_last_30 = VALUES(shows_last_30),
+  shows_last_90 = VALUES(shows_last_90),
+  best_day = VALUES(best_day),
+  best_venue_tier = VALUES(best_venue_tier),
+  venue_tier_max = VALUES(venue_tier_max),
+  is_ticketed_ratio = VALUES(is_ticketed_ratio),
+  sold_out_count = VALUES(sold_out_count),
+  last_show_date = VALUES(last_show_date),
+  insight_draw = VALUES(insight_draw),
+  insight_revenue = VALUES(insight_revenue),
+  insight_reliability = VALUES(insight_reliability),
+  insight_momentum = VALUES(insight_momentum),
+  last_computed = CURRENT_TIMESTAMP
+";
+} else {
+    $upsertSql = $upsertBase . "
+ON CONFLICT(band_name) DO UPDATE SET
+  draw_score = excluded.draw_score,
+  revenue_score = excluded.revenue_score,
+  reliability_score = excluded.reliability_score,
+  momentum_score = excluded.momentum_score,
+  composite_score = excluded.composite_score,
+  avg_attendance = excluded.avg_attendance,
+  estimated_draw = excluded.estimated_draw,
+  shows_tracked = excluded.shows_tracked,
+  shows_last_30 = excluded.shows_last_30,
+  shows_last_90 = excluded.shows_last_90,
+  best_day = excluded.best_day,
+  best_venue_tier = excluded.best_venue_tier,
+  venue_tier_max = excluded.venue_tier_max,
+  is_ticketed_ratio = excluded.is_ticketed_ratio,
+  sold_out_count = excluded.sold_out_count,
+  last_show_date = excluded.last_show_date,
+  insight_draw = excluded.insight_draw,
+  insight_revenue = excluded.insight_revenue,
+  insight_reliability = excluded.insight_reliability,
+  insight_momentum = excluded.insight_momentum,
+  last_computed = CURRENT_TIMESTAMP
+";
+}
 $upsertStmt = $pdo->prepare($upsertSql);
 
 // =====================================================

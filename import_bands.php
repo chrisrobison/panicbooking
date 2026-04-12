@@ -102,12 +102,13 @@ $updateScore = $pdo->prepare("
 
 // Backfill band_profile_id for any existing profiles not yet linked
 if (!$dryRun) {
+    $profileNameExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.name');
     $pdo->exec("
         UPDATE performer_scores
         SET band_profile_id = (
             SELECT u.id FROM users u
             JOIN profiles p ON p.user_id = u.id
-            WHERE json_extract(p.data, '$.name') = performer_scores.band_name
+            WHERE {$profileNameExpr} = performer_scores.band_name
               AND u.type = 'band'
             LIMIT 1
         )

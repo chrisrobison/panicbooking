@@ -14,6 +14,11 @@ function handleVenuesList(PDO $pdo): void {
 
     $params = [];
     $where  = ["u.type = 'venue'", "COALESCE(p.is_archived, 0) = 0"];
+    $nameExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.name');
+    $capacityExpr = panicSqlJsonIntExpr($pdo, 'p.data', '$.capacity');
+    $lastMinuteExpr = panicSqlJsonIntExpr($pdo, 'p.data', '$.open_to_last_minute');
+    $orderByNameAsc = panicSqlOrderByCi($nameExpr, 'ASC');
+    $orderByNameDesc = panicSqlOrderByCi($nameExpr, 'DESC');
 
     if ($q !== '') {
         $where[]      = "p.data LIKE :q";
@@ -28,22 +33,22 @@ function handleVenuesList(PDO $pdo): void {
         $params[':genre'] = '%' . $genre . '%';
     }
     if ($capMin > 0) {
-        $where[] = "CAST(json_extract(p.data, '$.capacity') AS INTEGER) >= {$capMin}";
+        $where[] = "{$capacityExpr} >= {$capMin}";
     }
     if ($capMax > 0) {
-        $where[] = "CAST(json_extract(p.data, '$.capacity') AS INTEGER) <= {$capMax}";
+        $where[] = "{$capacityExpr} <= {$capMax}";
     }
     if ($lastMinute) {
-        $where[] = "json_extract(p.data, '$.open_to_last_minute') = 1";
+        $where[] = "{$lastMinuteExpr} = 1";
     }
 
     $allowedSorts = ['name','name_desc','capacity','capacity_desc','recent'];
     if (!in_array($sort, $allowedSorts)) $sort = 'name';
     $orderBy = match($sort) {
-        'name'          => "json_extract(p.data, '$.name') COLLATE NOCASE ASC",
-        'name_desc'     => "json_extract(p.data, '$.name') COLLATE NOCASE DESC",
-        'capacity'      => "CAST(json_extract(p.data, '$.capacity') AS INTEGER) ASC",
-        'capacity_desc' => "CAST(json_extract(p.data, '$.capacity') AS INTEGER) DESC",
+        'name'          => $orderByNameAsc,
+        'name_desc'     => $orderByNameDesc,
+        'capacity'      => "{$capacityExpr} ASC",
+        'capacity_desc' => "{$capacityExpr} DESC",
         'recent'        => "u.created_at DESC",
     };
 

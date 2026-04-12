@@ -16,6 +16,12 @@ function handleAdminListUsers(PDO $pdo): void {
 
     $where  = [];
     $params = [];
+    $profileNameExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.name');
+    $neighborhoodExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.neighborhood');
+    $capacityExpr = panicSqlJsonIntExpr($pdo, 'p.data', '$.capacity');
+    $genresExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.genres');
+    $genresWelcomedExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.genres_welcomed');
+    $orderByName = panicSqlOrderByCi($profileNameExpr, 'ASC');
 
     if ($type !== '' && in_array($type, ['band', 'venue'])) {
         $where[]           = "u.type = :type";
@@ -43,18 +49,18 @@ function handleAdminListUsers(PDO $pdo): void {
 
     $stmt = $pdo->prepare("
         SELECT u.id, u.email, u.type, u.is_admin, u.created_at,
-               json_extract(p.data, '$.name')         AS profile_name,
-               json_extract(p.data, '$.neighborhood') AS neighborhood,
-               json_extract(p.data, '$.capacity')     AS capacity,
-               json_extract(p.data, '$.genres')       AS genres_json,
-               json_extract(p.data, '$.genres_welcomed') AS genres_welcomed_json,
+               {$profileNameExpr} AS profile_name,
+               {$neighborhoodExpr} AS neighborhood,
+               {$capacityExpr} AS capacity,
+               {$genresExpr} AS genres_json,
+               {$genresWelcomedExpr} AS genres_welcomed_json,
                COALESCE(p.is_generic, 0) AS is_generic,
                COALESCE(p.is_claimed, 0) AS is_claimed,
                COALESCE(p.is_archived, 0) AS is_archived
         FROM users u
         LEFT JOIN profiles p ON p.user_id = u.id
         {$whereClause}
-        ORDER BY json_extract(p.data, '$.name') COLLATE NOCASE ASC, u.created_at DESC
+        ORDER BY {$orderByName}, u.created_at DESC
         LIMIT :limit OFFSET :offset
     ");
     foreach ($params as $k => $v) $stmt->bindValue($k, $v);

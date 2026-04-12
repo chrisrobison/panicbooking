@@ -161,14 +161,7 @@ $inserted   = 0;
 $skipped    = 0;
 $errors     = 0;
 
-$stmt = $pdo->prepare("
-    INSERT OR REPLACE INTO scraped_events
-        (event_date, venue_name, venue_city, bands, age_restriction, price,
-         doors_time, show_time, is_sold_out, is_ticketed, notes, raw_meta, source_url, source)
-    VALUES
-        (:event_date, :venue_name, :venue_city, :bands, :age_restriction, :price,
-         :doors_time, :show_time, :is_sold_out, :is_ticketed, :notes, :raw_meta, :source_url, :source)
-");
+$stmt = $pdo->prepare(panicScrapedEventsUpsertSql($pdo));
 
 for ($page = 1; $page <= $totalPages; $page++) {
     $url  = $baseUrl . "by-date.{$page}.html";

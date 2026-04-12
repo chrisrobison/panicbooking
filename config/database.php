@@ -57,19 +57,32 @@ function panicDbConfig(): array {
 function panicConnectPdo(?array $config = null): PDO {
     $config = $config ?: panicDbConfig();
 
-    $pdo = new PDO(
-        $config['dsn'],
-        $config['username'] ?? null,
-        $config['password'] ?? null,
-        [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]
-    );
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+        PDO::ATTR_STRINGIFY_FETCHES  => false,
+    ];
+
+    if (($config['driver'] ?? '') === 'mysql' && defined('PDO::MYSQL_ATTR_MULTI_STATEMENTS')) {
+        $options[PDO::MYSQL_ATTR_MULTI_STATEMENTS] = false;
+    }
+
+    $pdo = new PDO($config['dsn'], $config['username'] ?? null, $config['password'] ?? null, $options);
 
     if (($config['driver'] ?? '') === 'sqlite') {
         $pdo->exec('PRAGMA foreign_keys = ON;');
     }
 
+    return $pdo;
+}
+
+function panicDb(): PDO {
+    static $pdo = null;
+    if ($pdo instanceof PDO) {
+        return $pdo;
+    }
+
+    $pdo = panicConnectPdo();
     return $pdo;
 }

@@ -1,12 +1,12 @@
 <?php
 /**
  * import_venues.php
- * One-time (idempotent) import of venues.json into the booking.db SQLite database.
+ * One-time (idempotent) import of venues.json into the configured Panic Booking DB.
  *
  * Run from the project root:
  *   php import_venues.php
  *
- * Safe to re-run — uses INSERT OR IGNORE on a unique generated email address.
+ * Safe to re-run — skips users that already exist by generated email address.
  */
 
 require_once __DIR__ . '/lib/security.php';
@@ -23,23 +23,8 @@ function out(string $msg): void {
     }
 }
 
-// ── DB connection ─────────────────────────────────────────────────────────────
-$dbPath = __DIR__ . '/data/booking.db';
-if (!file_exists($dbPath)) {
-    out("ERROR: Database not found at $dbPath");
-    out("Visit the app in a browser first to initialise the database, then re-run this script.");
-    exit(1);
-}
-
-try {
-    $pdo = new PDO('sqlite:' . $dbPath);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    $pdo->exec('PRAGMA foreign_keys = ON;');
-} catch (PDOException $e) {
-    out("ERROR: DB connection failed: " . $e->getMessage());
-    exit(1);
-}
+// ── DB connection + bootstrap ─────────────────────────────────────────────────
+require_once __DIR__ . '/api/includes/db.php';
 
 // ── Load venues.json ──────────────────────────────────────────────────────────
 $jsonPath = __DIR__ . '/venues.json';
@@ -130,10 +115,10 @@ function guessNeighborhood(?string $address): string {
 // ── Prepared statements ───────────────────────────────────────────────────────
 $checkUser    = $pdo->prepare("SELECT id FROM users WHERE email = ?");
 $insertUser   = $pdo->prepare(
-    "INSERT OR IGNORE INTO users (email, password_hash, type) VALUES (?, ?, 'venue')"
+    "INSERT INTO users (email, password_hash, type) VALUES (?, ?, 'venue')"
 );
 $insertProfile = $pdo->prepare(
-    "INSERT OR IGNORE INTO profiles (user_id, type, data, is_generic, is_claimed) VALUES (?, 'venue', ?, 1, 0)"
+    "INSERT INTO profiles (user_id, type, data, is_generic, is_claimed) VALUES (?, 'venue', ?, 1, 0)"
 );
 
 $genericHash = '*GENERIC*' . bin2hex(random_bytes(16));

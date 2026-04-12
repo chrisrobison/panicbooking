@@ -23,17 +23,8 @@ function out(string $msg): void {
     }
 }
 
-// ── DB connection ──────────────────────────────────────────────────────────────
-$dbPath = __DIR__ . '/data/booking.db';
-if (!file_exists($dbPath)) {
-    out("ERROR: Database not found at $dbPath");
-    exit(1);
-}
-
-$pdo = new PDO('sqlite:' . $dbPath);
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-$pdo->exec('PRAGMA foreign_keys = ON;');
+// ── DB connection + bootstrap ─────────────────────────────────────────────────
+require_once __DIR__ . '/api/includes/db.php';
 
 // ── Load venues.json ───────────────────────────────────────────────────────────
 $jsonPath = __DIR__ . '/venues.json';
@@ -52,7 +43,7 @@ function nameToEmail(string $name): string {
     $slug = strtolower($name);
     $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
     $slug = trim($slug, '-');
-    return $slug . '@venue.lastcallsf.local';
+    return $slug . '@venue.panicbooking.local';
 }
 
 function mapGenres(array $rawGenres): array {

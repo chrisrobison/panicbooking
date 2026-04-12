@@ -13,6 +13,11 @@ function handleBandsList(PDO $pdo): void {
 
     $params = [];
     $where  = ["u.type = 'band'", "COALESCE(p.is_archived, 0) = 0"];
+    $nameExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.name');
+    $seekingExpr = panicSqlJsonIntExpr($pdo, 'p.data', '$.seeking_gigs');
+    $lastMinuteExpr = panicSqlJsonIntExpr($pdo, 'p.data', '$.available_last_minute');
+    $orderByNameAsc = panicSqlOrderByCi($nameExpr, 'ASC');
+    $orderByNameDesc = panicSqlOrderByCi($nameExpr, 'DESC');
 
     if ($q !== '') {
         $where[]      = "p.data LIKE :q";
@@ -23,7 +28,7 @@ function handleBandsList(PDO $pdo): void {
         $params[':genre'] = '%' . $genre . '%';
     }
     if ($seeking) {
-        $where[] = "json_extract(p.data, '$.seeking_gigs') = 1";
+        $where[] = "{$seekingExpr} = 1";
     }
 
     // Score/draw filters always need the JOIN
@@ -31,17 +36,17 @@ function handleBandsList(PDO $pdo): void {
 
     // Sort order
     $join    = '';
-    $orderBy = "json_extract(p.data, '$.name') COLLATE NOCASE ASC";
+    $orderBy = $orderByNameAsc;
     $allowedSorts = ['name','name_desc','score','shows','draw','recent','lastminute'];
     if (!in_array($sort, $allowedSorts)) $sort = 'name';
 
     if ($needsScoreJoin) {
-        $join = "LEFT JOIN performer_scores ps ON ps.band_name = json_extract(p.data, '$.name')";
+        $join = "LEFT JOIN performer_scores ps ON ps.band_name = {$nameExpr}";
         $orderBy = match($sort) {
-            'score' => 'COALESCE(ps.composite_score, 0) DESC, json_extract(p.data, \'$.name\') COLLATE NOCASE ASC',
-            'shows' => 'COALESCE(ps.shows_tracked, 0) DESC, json_extract(p.data, \'$.name\') COLLATE NOCASE ASC',
-            'draw'  => 'COALESCE(ps.estimated_draw, 0) DESC, json_extract(p.data, \'$.name\') COLLATE NOCASE ASC',
-            default => 'json_extract(p.data, \'$.name\') COLLATE NOCASE ASC',
+            'score' => 'COALESCE(ps.composite_score, 0) DESC, ' . $orderByNameAsc,
+            'shows' => 'COALESCE(ps.shows_tracked, 0) DESC, ' . $orderByNameAsc,
+            'draw'  => 'COALESCE(ps.estimated_draw, 0) DESC, ' . $orderByNameAsc,
+            default => $orderByNameAsc,
         };
         // Inline numeric literals — PDO binds as TEXT by default which breaks
         // SQLite REAL >= TEXT comparisons due to type affinity rules.
@@ -52,11 +57,11 @@ function handleBandsList(PDO $pdo): void {
             $where[] = "COALESCE(ps.estimated_draw, 0) >= {$drawMin}";
         }
     } elseif ($sort === 'name_desc') {
-        $orderBy = "json_extract(p.data, '$.name') COLLATE NOCASE DESC";
+        $orderBy = $orderByNameDesc;
     } elseif ($sort === 'recent') {
         $orderBy = "u.created_at DESC";
     } elseif ($sort === 'lastminute') {
-        $orderBy = "json_extract(p.data, '$.available_last_minute') DESC, json_extract(p.data, '$.name') COLLATE NOCASE ASC";
+        $orderBy = "{$lastMinuteExpr} DESC, {$orderByNameAsc}";
     }
 
     $whereClause = implode(' AND ', $where);

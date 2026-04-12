@@ -168,9 +168,15 @@ Under `/api/payments/...`:
 
 ## Schema / Migration
 
-- Bootstrap schema is in `api/includes/db.php`.
-- SQL reference migration file: `db/migrations/20260411_ticketing.sql`.
-- Additional booking workflow migration: `db/migrations/20260411_booking_workflow.sql`.
+- Runtime DB bootstrap is centralized in:
+  - `config/database.php` (driver/env config + PDO options + singleton connection)
+  - `lib/db_bootstrap.php` (migration runner + legacy compatibility patches)
+  - `api/includes/db.php` (connect, bootstrap, optional demo seed)
+- Driver-specific bootstrap SQL lives in:
+  - `db/migrations/sqlite/20260412_000_bootstrap.sql`
+  - `db/migrations/mysql/20260412_000_bootstrap.sql`
+- Applied migrations are tracked in `schema_migrations`.
+- Existing historical SQL references remain in `db/migrations/*.sql` for context.
 
 New tables:
 
@@ -197,7 +203,24 @@ New tables:
 - admin users may override normal status transitions.
 - Ticketing is general admission only (no seats/transfers/resale/memberships).
 - Demo mode treats purchase submission as successful payment.
-- Existing legacy (non-ticketing) queries still include some SQLite-specific JSON usage and can be refactored separately for full MySQL parity.
+- JSON profile data remains stored in `profiles.data` (text/longtext), and SQL JSON extraction is handled via driver-aware helpers.
+
+## SQLite/MySQL Setup Notes
+
+1. Set `PB_DB_DRIVER=sqlite` (default) or `PB_DB_DRIVER=mysql`.
+2. For SQLite:
+   - Set `PB_DB_PATH=/absolute/path/to/booking.db` (optional; defaults to `data/booking.db`).
+3. For MySQL:
+   - Set `PB_DB_HOST`, `PB_DB_PORT`, `PB_DB_NAME`, `PB_DB_USER`, `PB_DB_PASS`, and optionally `PB_DB_CHARSET`.
+4. First request/script run auto-applies bootstrap migrations for the selected driver.
+5. Maintenance scripts now use the same central DB bootstrap path as app/API.
+
+## Migration Caveats / TODOs
+
+- MySQL bootstrap targets modern MySQL 8+ behavior (including `CHECK` constraints support).
+- Profiles and other JSON-like blobs are still text-backed; a future migration can promote selected fields to native JSON columns.
+- Some maintenance scripts still assume scraped-event uniqueness on `(event_date, venue_name, bands)`; keep that unique key in MySQL.
+- Historical one-off SQL files in `db/migrations/*.sql` are not yet wired into the new runner.
 
 ## Local Stripe CLI Testing
 
