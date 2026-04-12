@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+    <meta charset="utf-8">
+    <title>SF Music Venues Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --background-color: #f5f5f5;
+            --text-color: #333;
+            --header-background: #2c3e50;
+            --header-color: #fff;
+            --card-background: #fff;
+            --border-color: #ddd;
+            --accent-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #27ae60;
+            box-sizing: border-box;
+            font-family: "Lexend", "Helvetica Neue", "Helvetica", sans-serif;
+            font-size: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--header-background);
+            color: var(--header-color);
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0 0 1rem 0;
+            font-size: 2rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #229954;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        main {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .stats {
+            background: var(--card-background);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .venues-grid {
+            display: none;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1rem;
+        }
+
+        .venue-card {
+            background: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .venue-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .venue-card.editing {
+            border-color: var(--accent-color);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+
+        .venue-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--header-background);
+            font-size: 1.2rem;
+        }
+
+        .venue-field {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .venue-field strong {
+            display: inline-block;
+            min-width: 100px;
+            color: #555;
+        }
+
+        .genre-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-top: 0.25rem;
+        }
+
+        .genre-tag {
+            background-color: #ecf0f1;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        .venue-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.2rem;
+            color: #999;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .table-view {
+            display: none;
+            overflow-x: auto;
+        }
+
+        .table-view.active {
+            display: block;
+        }
+
+        .venues-grid.active {
+            display: grid;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--header-background);
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1><i class="fas fa-music"></i> SF Music Venues Editor</h1>
+    <div class="controls">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search venues, neighborhoods, genres...">
+        </div>
+        <div class="view-toggle">
+            <button class="btn-primary" onclick="app.toggleView('grid')">
+                <i class="fas fa-grip"></i> Cards
+            </button>
+            <button class="btn-primary" onclick="app.toggleView('table')">
+                <i class="fas fa-table"></i> Table
+            </button>
+        </div>
+        <button class="btn-success" onclick="app.addNewVenue()">
+            <i class="fas fa-plus"></i> Add Venue
+        </button>
+        <button class="btn-success" onclick="app.exportJSON()">
+            <i class="fas fa-download"></i> Export JSON
+        </button>
+        <button class="btn-primary" onclick="app.loadFile()">
+            <i class="fas fa-upload"></i> Load File
+        </button>
+    </div>
+</header>
+
+<main>
+    <div class="stats" id="stats">
+        <strong>Total Venues:</strong> <span id="venueCount">0</span> |
+        <strong>Displayed:</strong> <span id="displayCount">0</span>
+    </div>
+
+    <div id="loading" class="loading">
+        <i class="fas fa-spinner fa-spin"></i> Loading venues...
+    </div>
+
+    <div id="gridView" class="venues-grid active"></div>
+
+    <div id="tableView" class="table-view"></div>
+</main>
+
+<!-- Edit/Add Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h2 id="modalTitle">Edit Venue</h2>
+        <form id="editForm">
+            <div class="form-group">
+                <label for="editName">Name *</label>
+                <input type="text" id="editName" required>
+            </div>
+            <div class="form-group">
+                <label for="editAddress">Address *</label>
+                <input type="text" id="editAddress" required>
+            </div>
+            <div class="form-group">
+                <label for="editNeighborhood">Neighborhood *</label>
+                <input type="text" id="editNeighborhood" required>
+            </div>
+            <div class="form-group">
+                <label for="editCapacity">Capacity</label>
+                <input type="text" id="editCapacity">
+            </div>
+            <div class="form-group">
+                <label for="editGenres">Typical Genres (comma-separated)</label>
+                <input type="text" id="editGenres" placeholder="rock, indie, jazz">
+            </div>
+            <div class="form-group">
+                <label for="editNotes">Notes</label>
+                <textarea id="editNotes"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-primary" onclick="app.closeModal()">Cancel</button>
+                <button type="submit" class="btn-success">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="fileInput" accept=".json" style="display: none;">
+
+<script>
+(function() {
+    const $ = str => document.querySelector(str);
+    const $$ = str => document.querySelectorAll(str);
+
+    const app = {
+        data: [],
+        filteredData: [],
+        currentView: 'grid',
+        editingIndex: null,
+
+        state: {
+            loaded: false
+        },
+
+        init() {
+            // Set up event listeners
+            $('#searchInput').addEventListener('input', (e) => {
+                app.filterVenues(e.target.value);
+            });
+
+            $('#editForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                app.saveVenue();
+            });
+
+            $('#fileInput').addEventListener('change', (e) => {
+                app.handleFileLoad(e);
+            });
+
+            // Load data from venues.json
+            app.fetch('venues.json', (data) => {
+                app.data = data;
+                app.filteredData = [...data];
+                app.render();
+            });
+        },
+
+        fetch(url, callback) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    app.state.loaded = true;
+                    $('#loading').style.display = 'none';
+                    if (callback && typeof(callback) === "function") {
+                        callback(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    $('#loading').innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error loading venues. Please ensure venues.json is in the same directory.';
+                });
+        },
+
+        filterVenues(searchTerm) {
+            const term = searchTerm.toLowerCase().trim();
+
+            if (!term) {
+                app.filteredData = [...app.data];
+            } else {
+                app.filteredData = app.data.filter(venue => {
+                    return venue.name.toLowerCase().includes(term) ||
+                           venue.neighborhood.toLowerCase().includes(term) ||
+                           (venue.address && venue.address.toLowerCase().includes(term)) ||
+                           (venue.notes && venue.notes.toLowerCase().includes(term)) ||
+                           (venue.typical_genres && venue.typical_genres.some(g => g.toLowerCase().includes(term)));
+                });
+            }
+
+            app.render();
+        },
+
+        render() {
+            app.updateStats();
+
+            if (app.currentView === 'grid') {
+                app.renderGrid();
+            } else {
+                app.renderTable();
+            }
+        },
+
+        updateStats() {
+            $('#venueCount').textContent = app.data.length;
+            $('#displayCount').textContent = app.filteredData.length;
+        },
+
+        renderGrid() {
+            const grid = $('#gridView');
+            let html = '';
+
+            app.filteredData.forEach((venue, index) => {
+                const genres = venue.typical_genres ? venue.typical_genres.map(g =>
+                    `<span class="genre-tag">${g}</span>`
+                ).join('') : '';
+
+                html += `
+                    <div class="venue-card" data-index="${index}">
+                        <h3>${venue.name}</h3>
+                        <div class="venue-field">
+                            <strong>Address:</strong> ${venue.address || 'N/A'}
+                        </div>
+                        <div class="venue-field">
+                            <strong>Neighborhood:</strong> ${venue.neighborhood || 'N/A'}
+                        </div>
+                        <div class="venue-field">
+                            <strong>Capacity:</strong> ${venue.capacity || 'Unknown'}
+                        </div>
+                        ${venue.typical_genres ? `
+                            <div class="venue-field">
+                                <strong>Genres:</strong>
+                                <div class="genre-tags">${genres}</div>
+                            </div>
+                        ` : ''}
+                        ${venue.notes ? `
+                            <div class="venue-field">
+                                <strong>Notes:</strong> ${venue.notes}
+                            </div>
+                        ` : ''}
+                        <div class="venue-actions">
+                            <button class="btn-primary btn-small" onclick="app.editVenue(${app.data.indexOf(venue)})">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn-danger btn-small" onclick="app.deleteVenue(${app.data.indexOf(venue)})">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html || '<p style="text-align: center; padding: 2rem; color: #999;">No venues found.</p>';
+        },
+
+        renderTable() {
+            const tableView = $('#tableView');
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Address</th>
+                            <th>Neighborhood</th>
+                            <th>Capacity</th>
+                            <th>Genres</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            app.filteredData.forEach((venue) => {
+                const genres = venue.typical_genres ? venue.typical_genres.join(', ') : '';
+                const index = app.data.indexOf(venue);
+
+                html += `
+                    <tr>
+                        <td><strong>${venue.name}</strong></td>
+                        <td>${venue.address || 'N/A'}</td>
+                        <td>${venue.neighborhood || 'N/A'}</td>
+                        <td>${venue.capacity || 'Unknown'}</td>
+                        <td>${genres}</td>
+                        <td>${venue.notes || ''}</td>
+                        <td>
+                            <button class="btn-primary btn-small" onclick="app.editVenue(${index})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-danger btn-small" onclick="app.deleteVenue(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            tableView.innerHTML = html || '<p style="text-align: center; padding: 2rem; color: #999;">No venues found.</p>';
+        },
+
+        toggleView(view) {
+            app.currentView = view;
+
+            if (view === 'grid') {
+                $('#gridView').classList.add('active');
+                $('#tableView').classList.remove('active');
+            } else {
+                $('#gridView').classList.remove('active');
+                $('#tableView').classList.add('active');
+            }
+
+            app.render();
+        },
+
+        editVenue(index) {
+            app.editingIndex = index;
+            const venue = app.data[index];
+
+            $('#modalTitle').textContent = 'Edit Venue';
+            $('#editName').value = venue.name || '';
+            $('#editAddress').value = venue.address || '';
+            $('#editNeighborhood').value = venue.neighborhood || '';
+            $('#editCapacity').value = venue.capacity || '';
+            $('#editGenres').value = venue.typical_genres ? venue.typical_genres.join(', ') : '';
+            $('#editNotes').value = venue.notes || '';
+
+            $('#editModal').classList.add('active');
+        },
+
+        addNewVenue() {
+            app.editingIndex = null;
+
+            $('#modalTitle').textContent = 'Add New Venue';
+            $('#editForm').reset();
+
+            $('#editModal').classList.add('active');
+        },
+
+        saveVenue() {
+            const venue = {
+                name: $('#editName').value.trim(),
+                address: $('#editAddress').value.trim(),
+                neighborhood: $('#editNeighborhood').value.trim(),
+                capacity: $('#editCapacity').value.trim() || null,
+                typical_genres: $('#editGenres').value.trim() ?
+                    $('#editGenres').value.split(',').map(g => g.trim()) : [],
+                notes: $('#editNotes').value.trim()
+            };
+
+            if (app.editingIndex !== null) {
+                // Update existing venue
+                app.data[app.editingIndex] = venue;
+            } else {
+                // Add new venue
+                app.data.push(venue);
+            }
+
+            app.closeModal();
+            app.filterVenues($('#searchInput').value);
+        },
+
+        deleteVenue(index) {
+            if (confirm(`Are you sure you want to delete "${app.data[index].name}"?`)) {
+                app.data.splice(index, 1);
+                app.filterVenues($('#searchInput').value);
+            }
+        },
+
+        closeModal() {
+            $('#editModal').classList.remove('active');
+            app.editingIndex = null;
+        },
+
+        exportJSON() {
+            const dataStr = JSON.stringify(app.data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'venues.json';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        },
+
+        loadFile() {
+            $('#fileInput').click();
+        },
+
+        handleFileLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    if (Array.isArray(json)) {
+                        app.data = json;
+                        app.filteredData = [...json];
+                        app.render();
+                        alert('File loaded successfully!');
+                    } else {
+                        alert('Invalid JSON format. Expected an array of venues.');
+                    }
+                } catch (error) {
+                    alert('Error parsing JSON file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+
+    window.app = app;
+    app.init();
+})();
+</script>
+</body>
+</html>

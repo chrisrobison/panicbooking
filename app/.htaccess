@@ -1,0 +1,4 @@
+RewriteEngine On
+
+# Redirect old venues.php URL to clean /app/venues
+RewriteRule ^venues\.php$ /app/venues [R=301,L]

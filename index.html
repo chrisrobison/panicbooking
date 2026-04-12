@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panic Booking — When You Need a Band, Now</title>
+  <meta name="description" content="Panic Booking connects bands with venues. Specialists in last-minute bookings and emergency fill-ins. Punk, rock, and everything loud." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600;700&family=IBM+Plex+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NOISE OVERLAY -->
+  <div class="noise-overlay" aria-hidden="true"></div>
+
+  <!-- HEADER / NAV -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#" class="logo" aria-label="Panic Booking Home">
+        <span class="logo-exclaim">!</span>
+        <span class="logo-text">PANIC<br><span class="logo-sub">BOOKING</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <ul>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#last-minute">Last Minute</a></li>
+          <li><a href="#roster">Roster</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact" class="nav-cta">Get Booked</a></li>
+          <li><a href="/app/" class="nav-app">🌑 Dark Nights</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MOBILE NAV DRAWER -->
+  <div class="mobile-nav" aria-hidden="true">
+    <ul>
+      <li><a href="#services">Services</a></li>
+      <li><a href="#last-minute">Last Minute</a></li>
+      <li><a href="#roster">Roster</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#contact">Get Booked</a></li>
+      <li><a href="/app/">🌑 Dark Nights Platform</a></li>
+    </ul>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero" id="home">
+    <div class="hero-bg" aria-hidden="true">
+      <div class="hero-stripe stripe-1"></div>
+      <div class="hero-stripe stripe-2"></div>
+      <div class="hero-stripe stripe-3"></div>
+    </div>
+    <div class="container hero-content">
+      <div class="hero-eyebrow">
+        <span class="dot"></span>
+        <span>EST. IN CHAOS</span>
+        <span class="dot"></span>
+      </div>
+      <h1 class="hero-headline">
+        YOUR STAGE.<br>
+        YOUR BAND.<br>
+        <em>RIGHT NOW.</em>
+      </h1>
+      <p class="hero-sub">
+        Panic Booking is the agency that thrives when everything goes sideways.
+        Last-minute fill-ins, emergency bookings, and killer lineups for venues
+        that need a band <strong>tonight</strong>.
+      </p>
+      <div class="hero-actions">
+        <a href="#contact" class="btn btn-primary">Book a Band</a>
+        <a href="#last-minute" class="btn btn-ghost">Last Minute?</a>
+      </div>
+      <div class="hero-ticker" aria-label="Scrolling marquee">
+        <div class="ticker-track">
+          <span>PUNK &bull;</span>
+          <span>HARDCORE &bull;</span>
+          <span>GARAGE ROCK &bull;</span>
+          <span>POST-PUNK &bull;</span>
+          <span>SKA &bull;</span>
+          <span>METAL &bull;</span>
+          <span>INDIE &bull;</span>
+          <span>NO WAVE &bull;</span>
+          <span>OI! &bull;</span>
+          <span>DEATH ROCK &bull;</span>
+          <span>PUNK &bull;</span>
+          <span>HARDCORE &bull;</span>
+          <span>GARAGE ROCK &bull;</span>
+          <span>POST-PUNK &bull;</span>
+          <span>SKA &bull;</span>
+          <span>METAL &bull;</span>
+          <span>INDIE &bull;</span>
+          <span>NO WAVE &bull;</span>
+          <span>OI! &bull;</span>
+          <span>DEATH ROCK &bull;</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="services" id="services">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">What We Do</span>
+        <h2>Booking That Actually Works</h2>
+        <p>Whether you're planning six months out or you need someone on stage in six hours — we've got you covered.</p>
+      </div>
+      <div class="services-grid">
+        <article class="service-card">
+          <div class="service-icon" aria-hidden="true">&#9889;</div>
+          <h3>Standard Booking</h3>
+          <p>Full-service band booking for clubs, bars, festivals, private events, and beyond. We match the right act to your room, every time.</p>
+          <ul class="service-list">
+            <li>Artist matching & negotiation</li>
+            <li>Contract management</li>
+            <li>Rider coordination</li>
+            <li>Day-of support</li>
+          </ul>
+        </article>
+        <article class="service-card card-accent">
+          <div class="service-icon" aria-hidden="true">&#9888;</div>
+          <h3>Last-Minute Bookings</h3>
+          <p>Band canceled on you? Show is in 48 hours? We specialize in the scramble. Our network is deep and our phones are always on.</p>
+          <ul class="service-list">
+            <li>24/7 emergency line</li>
+            <li>48-hour turnaround</li>
+            <li>Same-day fills when possible</li>
+            <li>No panic surcharge</li>
+          </ul>
+          <span class="card-badge">Our Specialty</span>
+        </article>
+        <article class="service-card">
+          <div class="service-icon" aria-hidden="true">&#128197;</div>
+          <h3>Tour Booking</h3>
+          <p>Route your band through cities, connect the dots, and make the whole run make financial sense. We know the rooms and the people who run them.</p>
+          <ul class="service-list">
+            <li>Regional & national routing</li>
+            <li>Venue relationships</li>
+            <li>Support slot placement</li>
+            <li>Package tours</li>
+          </ul>
+        </article>
+        <article class="service-card">
+          <div class="service-icon" aria-hidden="true">&#127925;</div>
+          <h3>Venue Consulting</h3>
+          <p>Running a club or bar and struggling to keep your calendar full? We help venues build consistent, exciting lineups that bring people back.</p>
+          <ul class="service-list">
+            <li>Monthly booking packages</li>
+            <li>Genre curation</li>
+            <li>Local artist development</li>
+            <li>Festival coordination</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAST MINUTE CALLOUT -->
+  <section class="last-minute" id="last-minute">
+    <div class="lm-bg" aria-hidden="true"></div>
+    <div class="container lm-inner">
+      <div class="lm-text">
+        <span class="section-tag tag-dark">Emergency Booking</span>
+        <h2>Band Just Canceled?<br><em>Don't Panic. Call Panic.</em></h2>
+        <p>
+          It happens to everyone — a band drops out, a tour falls apart, a venue
+          suddenly has a hole in the calendar. That's exactly when we built this agency.
+          Kat and her crew have filled last-minute slots at everything from 50-cap
+          basements to 2,000-seat theaters.
+        </p>
+        <p>
+          Our roster is full of professional acts who can learn a set, travel fast, and
+          show up ready. No drama. Just loud music, on time.
+        </p>
+        <div class="lm-stats">
+          <div class="stat">
+            <span class="stat-num">48h</span>
+            <span class="stat-label">Average fill time</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">24/7</span>
+            <span class="stat-label">Reachable</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">100%</span>
+            <span class="stat-label">Show must go on</span>
+          </div>
+        </div>
+        <a href="#contact" class="btn btn-danger">Get a Fill-In Now</a>
+      </div>
+      <div class="lm-visual" aria-hidden="true">
+        <div class="lm-card">
+          <div class="lm-card-header">
+            <span class="blink-dot"></span>
+            PANIC MODE ACTIVATED
+          </div>
+          <div class="lm-card-body">
+            <div class="lm-step">
+              <span class="step-num">01</span>
+              <span>You call / text / email us</span>
+            </div>
+            <div class="lm-step">
+              <span class="step-num">02</span>
+              <span>We assess your date, venue & vibe</span>
+            </div>
+            <div class="lm-step">
+              <span class="step-num">03</span>
+              <span>We hit the phones — hard</span>
+            </div>
+            <div class="lm-step">
+              <span class="step-num">04</span>
+              <span>Confirmed band, contract done</span>
+            </div>
+            <div class="lm-step">
+              <span class="step-num">05</span>
+              <span>Show goes on. Crisis averted.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROSTER / GENRES -->
+  <section class="roster" id="roster">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">The Roster</span>
+        <h2>Loud, Live &amp; Ready</h2>
+        <p>We work with bands across the heavy end of the spectrum — punk is our home, but we book everything with an edge.</p>
+      </div>
+      <div class="genre-grid">
+        <div class="genre-pill">Punk</div>
+        <div class="genre-pill">Hardcore</div>
+        <div class="genre-pill">Post-Punk</div>
+        <div class="genre-pill">Garage Rock</div>
+        <div class="genre-pill">Psychobilly</div>
+        <div class="genre-pill">Ska Punk</div>
+        <div class="genre-pill">Oi!</div>
+        <div class="genre-pill">Death Rock</div>
+        <div class="genre-pill">Metal</div>
+        <div class="genre-pill">Indie Rock</div>
+        <div class="genre-pill">No Wave</div>
+        <div class="genre-pill">Riot Grrrl</div>
+        <div class="genre-pill">Crust</div>
+        <div class="genre-pill">Power Pop</div>
+        <div class="genre-pill">Noise Rock</div>
+      </div>
+      <div class="roster-cta">
+        <p>Are you a band looking to get booked? We're always looking for serious acts who show up and bring the energy.</p>
+        <a href="#contact" class="btn btn-outline">Submit Your Band</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLATFORM CALLOUT -->
+  <section class="platform-callout" id="platform">
+    <div class="container">
+      <div class="platform-inner">
+        <div class="platform-text">
+          <span class="section-tag tag-dark">The Discovery Platform</span>
+          <h2>Find the Dark Nights.<br><em>Fill the Empty Stages.</em></h2>
+          <p>
+            Every night a venue goes dark is a wasted opportunity. Our open platform
+            lets you browse SF venue calendars, spot available nights, and connect
+            directly — no agency fees, no middleman.
+          </p>
+          <ul class="platform-list">
+            <li><span class="platform-bullet">🌑</span> See every dark night across SF venues</li>
+            <li><span class="platform-bullet">🎸</span> Browse bands seeking shows &amp; their availability</li>
+            <li><span class="platform-bullet">📅</span> Full SF show calendar — punk, rock, and beyond</li>
+            <li><span class="platform-bullet">📊</span> Performer scores &amp; draw estimates</li>
+          </ul>
+          <div class="platform-actions">
+            <a href="/app/dark-nights.php" class="btn btn-primary">View Dark Nights</a>
+            <a href="/app/calendar.php" class="btn btn-ghost">Browse Calendar</a>
+          </div>
+        </div>
+        <div class="platform-visual" aria-hidden="true">
+          <div class="dn-preview">
+            <div class="dn-preview-header">
+              <span class="blink-dot"></span>
+              OPEN NIGHTS — SF VENUES
+            </div>
+            <div class="dn-preview-row dark-row">
+              <span class="dn-venue">Bottom of the Hill</span>
+              <span class="dn-badge dark">DARK</span>
+            </div>
+            <div class="dn-preview-row booked-row">
+              <span class="dn-venue">Great American Music Hall</span>
+              <span class="dn-badge booked">BOOKED</span>
+            </div>
+            <div class="dn-preview-row dark-row">
+              <span class="dn-venue">The Chapel</span>
+              <span class="dn-badge dark">DARK</span>
+            </div>
+            <div class="dn-preview-row dark-row">
+              <span class="dn-venue">Brick &amp; Mortar Music Hall</span>
+              <span class="dn-badge dark">DARK</span>
+            </div>
+            <div class="dn-preview-row booked-row">
+              <span class="dn-venue">Regency Ballroom</span>
+              <span class="dn-badge booked">BOOKED</span>
+            </div>
+            <div class="dn-preview-footer">
+              <a href="/app/dark-nights.php">See all available nights →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="about" id="about">
+    <div class="container about-inner">
+      <div class="about-visual" aria-hidden="true">
+        <div class="about-block">
+          <div class="about-block-inner">
+            <span class="about-icon">&#127928;</span>
+          </div>
+        </div>
+        <div class="about-accent-lines">
+          <div class="acc-line"></div>
+          <div class="acc-line"></div>
+          <div class="acc-line"></div>
+        </div>
+      </div>
+      <div class="about-text">
+        <span class="section-tag">About Us</span>
+        <h2>Built for the Chaos of Live Music</h2>
+        <p>
+          Panic Booking was born out of the DIY scene — venues that needed bands,
+          bands that needed shows, and nobody to connect them on short notice. So
+          we fixed that.
+        </p>
+        <p>
+          Led by <strong>Kat Rodriguez</strong>, our agency works across the full
+          spectrum of the live music industry, from sweaty basement shows to legitimate
+          club stages. We know both worlds, and we move fast in both.
+        </p>
+        <p>
+          We don't believe in over-promising. We believe in answering the phone,
+          knowing our roster cold, and making deals that work for everyone involved.
+          That's it.
+        </p>
+        <div class="about-values">
+          <div class="value-item">
+            <span class="value-marker">&#9632;</span>
+            <span>Fast communication — always</span>
+          </div>
+          <div class="value-item">
+            <span class="value-marker">&#9632;</span>
+            <span>Transparent deals, no hidden fees</span>
+          </div>
+          <div class="value-item">
+            <span class="value-marker">&#9632;</span>
+            <span>Deep roots in the punk / DIY scene</span>
+          </div>
+          <div class="value-item">
+            <span class="value-marker">&#9632;</span>
+            <span>The show always goes on</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section class="contact" id="contact">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Get In Touch</span>
+        <h2>Let's Make It Happen</h2>
+        <p>Venue needing a band? Band looking for shows? Crisis mode? All of the above? Hit us up.</p>
+      </div>
+      <div class="contact-inner">
+        <div class="contact-info">
+          <div class="contact-person">
+            <div class="person-avatar" aria-hidden="true">KR</div>
+            <div class="person-details">
+              <strong>Kat Rodriguez</strong>
+              <span>Agent / Founder</span>
+            </div>
+          </div>
+          <div class="contact-methods">
+            <a href="tel:4152005230" class="contact-method">
+              <span class="method-icon" aria-hidden="true">&#9742;</span>
+              <span class="method-label">Phone / Text</span>
+              <span class="method-value">415-200-5230</span>
+            </a>
+            <a href="mailto:kathotrod@gmail.com" class="contact-method">
+              <span class="method-icon" aria-hidden="true">&#9993;</span>
+              <span class="method-label">Email</span>
+              <span class="method-value">kathotrod@gmail.com</span>
+            </a>
+          </div>
+          <div class="contact-note">
+            <span class="blink-dot"></span>
+            <span>For last-minute emergencies, <strong>call or text</strong> directly.</span>
+          </div>
+        </div>
+
+        <form class="contact-form" name="booking-inquiry" action="#" method="post" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="name">Your Name</label>
+              <input type="text" id="name" name="name" placeholder="Jane Doe" required />
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" placeholder="you@example.com" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="phone">Phone</label>
+              <input type="tel" id="phone" name="phone" placeholder="555-000-1234" />
+            </div>
+            <div class="form-group">
+              <label for="inquiry-type">I am a...</label>
+              <select id="inquiry-type" name="inquiry-type" required>
+                <option value="" disabled selected>Select one</option>
+                <option value="venue">Venue / Promoter</option>
+                <option value="band">Band / Artist</option>
+                <option value="festival">Festival / Event</option>
+                <option value="emergency">EMERGENCY — need a band NOW</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="date">Event Date (if known)</label>
+            <input type="date" id="date" name="date" />
+          </div>
+          <div class="form-group">
+            <label for="message">Tell Us More</label>
+            <textarea id="message" name="message" rows="5" placeholder="Tell us about your venue, event, or situation. The more detail, the faster we can help."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">Send It</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <a href="#" class="logo" aria-label="Panic Booking Home">
+          <span class="logo-exclaim">!</span>
+          <span class="logo-text">PANIC<br><span class="logo-sub">BOOKING</span></span>
+        </a>
+        <p>The agency that shows up when things go wrong — and right.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Navigation</h4>
+        <ul>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#last-minute">Last-Minute Booking</a></li>
+          <li><a href="#roster">Roster</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h4>Platform</h4>
+        <ul>
+          <li><a href="/app/dark-nights.php">🌑 Dark Nights</a></li>
+          <li><a href="/app/calendar.php">SF Show Calendar</a></li>
+          <li><a href="/app/bands.php">Bands</a></li>
+          <li><a href="/app/venues">Venues</a></li>
+          <li><a href="/app/login.php">Log In</a></li>
+        </ul>
+      </div>
+      <div class="footer-contact">
+        <h4>Contact</h4>
+        <p>Kat Rodriguez</p>
+        <a href="tel:4152005230">415-200-5230</a>
+        <a href="mailto:kathotrod@gmail.com">kathotrod@gmail.com</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="container">
+        <span>&copy; 2026 Panic Booking. All rights reserved.</span>
+        <span class="footer-motto">The show must go on.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
