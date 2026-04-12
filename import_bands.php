@@ -40,13 +40,15 @@ foreach ($rows as $json) {
     if (!is_array($arr)) continue;
     foreach ($arr as $name) {
         $name = trim($name);
-        if ($name !== '') {
-            $allBands[$name] = true;
+        $key = panicCanonicalNameKey($name);
+        if ($name !== '' && $key !== '' && !isset($allBands[$key])) {
+            $allBands[$key] = $name;
         }
     }
 }
-$allBands = array_keys($allBands);
-sort($allBands);
+$allBands = array_values($allBands);
+natcasesort($allBands);
+$allBands = array_values($allBands);
 
 if (!$quiet) {
     echo "Found " . count($allBands) . " unique band names in scraped_events.\n";
@@ -57,25 +59,40 @@ if (!$quiet) {
 // Key: normalised name (lowercase) => user_id
 $existing = [];
 $rows = $pdo->query("
-    SELECT p.user_id, p.data
+    SELECT p.user_id,
+           p.data,
+           p.created_at,
+           p.updated_at,
+           COALESCE(p.is_claimed, 0) AS is_claimed,
+           COALESCE(p.is_generic, 0) AS is_generic
     FROM profiles p
     JOIN users u ON u.id = p.user_id
     WHERE u.type = 'band'
+      AND p.type = 'band'
+      AND COALESCE(p.is_archived, 0) = 0
 ")->fetchAll();
 foreach ($rows as $r) {
     $data = json_decode($r['data'], true) ?: [];
-    $name = strtolower(trim($data['name'] ?? ''));
-    if ($name !== '') {
-        $existing[$name] = (int)$r['user_id'];
+    $key = panicCanonicalNameKey((string)($data['name'] ?? ''));
+    if ($key !== '') {
+        $existing[$key] = [
+            'user_id' => (int)$r['user_id'],
+            'is_protected' => panicProfileIsProtected($r),
+        ];
     }
 }
+
+$protectedBandKeys = panicLoadProtectedProfileNameSet($pdo, 'band');
 
 // ── Load performer_scores for enrichment ─────────────────────────────────────
 
 $scores = [];
 $scoreRows = $pdo->query("SELECT * FROM performer_scores")->fetchAll();
 foreach ($scoreRows as $s) {
-    $scores[strtolower(trim($s['band_name']))] = $s;
+    $key = panicCanonicalNameKey((string)($s['band_name'] ?? ''));
+    if ($key !== '') {
+        $scores[$key] = $s;
+    }
 }
 
 // ── Collect used emails/slugs to handle collisions ───────────────────────────
@@ -97,7 +114,9 @@ $insertProfile = $pdo->prepare("
     VALUES (?, 'band', ?, 1, 0)
 ");
 $updateScore = $pdo->prepare("
-    UPDATE performer_scores SET band_profile_id = ? WHERE band_name = ?
+    UPDATE performer_scores
+    SET band_profile_id = ?
+    WHERE LOWER(TRIM(band_name)) = LOWER(TRIM(?))
 ");
 
 // Backfill band_profile_id for any existing profiles not yet linked
@@ -108,8 +127,9 @@ if (!$dryRun) {
         SET band_profile_id = (
             SELECT u.id FROM users u
             JOIN profiles p ON p.user_id = u.id
-            WHERE {$profileNameExpr} = performer_scores.band_name
+            WHERE LOWER(TRIM({$profileNameExpr})) = LOWER(TRIM(performer_scores.band_name))
               AND u.type = 'band'
+              AND p.type = 'band'
             LIMIT 1
         )
         WHERE band_profile_id IS NULL
@@ -122,9 +142,19 @@ $genericHash = '*GENERIC*' . bin2hex(random_bytes(16));
 
 $inserted = 0;
 $skipped  = 0;
+$skippedProtected = 0;
 
 foreach ($allBands as $bandName) {
-    $key = strtolower($bandName);
+    $key = panicCanonicalNameKey($bandName);
+    if ($key === '') {
+        $skipped++;
+        continue;
+    }
+
+    if (isset($protectedBandKeys[$key])) {
+        $skippedProtected++;
+        continue;
+    }
 
     // Skip if a profile with this name already exists
     if (isset($existing[$key])) {
@@ -167,7 +197,10 @@ foreach ($allBands as $bandName) {
             $userId = (int)$pdo->lastInsertId();
             $insertProfile->execute([$userId, $dataJson]);
             $usedEmails[strtolower($email)] = true;
-            $existing[$key] = $userId;
+            $existing[$key] = [
+                'user_id' => $userId,
+                'is_protected' => false,
+            ];
             // Link performer_scores → profile
             $updateScore->execute([$userId, $bandName]);
             $inserted++;
@@ -183,4 +216,4 @@ echo "\n";
 if ($dryRun) {
     echo "DRY RUN — no changes written.\n";
 }
-echo "Done. Imported: {$inserted}, Already existed: {$skipped}.\n";
+echo "Done. Imported: {$inserted}, Already existed: {$skipped}, Protected skipped: {$skippedProtected}.\n";

@@ -6,7 +6,7 @@
  * Run from the project root:
  *   php import_venues.php
  *
- * Safe to re-run — skips users that already exist by generated email address.
+ * Safe to re-run — skips existing venues by generated email and by canonical name.
  */
 
 require_once __DIR__ . '/lib/security.php';
@@ -121,6 +121,42 @@ $insertProfile = $pdo->prepare(
     "INSERT INTO profiles (user_id, type, data, is_generic, is_claimed) VALUES (?, 'venue', ?, 1, 0)"
 );
 
+// Build a canonical-name index of active venue profiles so we do not create
+// duplicate generic rows when names/emails evolve over time.
+$existingVenueByName = [];
+$existingVenueRows = $pdo->query("
+    SELECT p.data,
+           p.created_at,
+           p.updated_at,
+           COALESCE(p.is_claimed, 0) AS is_claimed,
+           COALESCE(p.is_generic, 0) AS is_generic
+    FROM profiles p
+    JOIN users u ON u.id = p.user_id
+    WHERE u.type = 'venue'
+      AND p.type = 'venue'
+      AND COALESCE(p.is_archived, 0) = 0
+")->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($existingVenueRows as $row) {
+    $data = json_decode((string)($row['data'] ?? ''), true);
+    if (!is_array($data)) {
+        continue;
+    }
+    $key = panicCanonicalNameKey((string)($data['name'] ?? ''));
+    if ($key === '') {
+        continue;
+    }
+
+    $isProtected = panicProfileIsProtected($row);
+    if (!isset($existingVenueByName[$key])) {
+        $existingVenueByName[$key] = ['is_protected' => $isProtected];
+        continue;
+    }
+    if ($isProtected) {
+        $existingVenueByName[$key]['is_protected'] = true;
+    }
+}
+
 $genericHash = '*GENERIC*' . bin2hex(random_bytes(16));
 
 // ── Import loop ───────────────────────────────────────────────────────────────
@@ -135,11 +171,23 @@ foreach ($venues as $v) {
     }
 
     $email = nameToEmail($name);
+    $nameKey = panicCanonicalNameKey($name);
 
-    // Check if already imported
+    // Check if an account already exists with this generated import email.
     $checkUser->execute([$email]);
     if ($checkUser->fetchColumn()) {
         out("  SKIP (exists): $name");
+        $skipped++;
+        continue;
+    }
+
+    // Also skip when a venue profile with the same canonical name exists,
+    // especially if that profile has been claimed or manually modified.
+    if ($nameKey !== '' && isset($existingVenueByName[$nameKey])) {
+        $reason = $existingVenueByName[$nameKey]['is_protected']
+            ? 'claimed/modified profile exists'
+            : 'name already exists';
+        out("  SKIP ({$reason}): $name");
         $skipped++;
         continue;
     }
@@ -186,7 +234,19 @@ foreach ($venues as $v) {
     ];
 
     // Insert user row
-    $insertUser->execute([$email, $genericHash]);
+    try {
+        $insertUser->execute([$email, $genericHash]);
+    } catch (PDOException $e) {
+        if (panicDbIsDuplicateKeyException($e)) {
+            out("  SKIP (exists): $name");
+            $skipped++;
+            continue;
+        }
+        out("  ERROR inserting user for $name: " . $e->getMessage());
+        $skipped++;
+        continue;
+    }
+
     $userId = $pdo->lastInsertId();
 
     if (!$userId) {
@@ -197,6 +257,9 @@ foreach ($venues as $v) {
 
     // Insert profile row
     $insertProfile->execute([$userId, json_encode($profileData)]);
+    if ($nameKey !== '') {
+        $existingVenueByName[$nameKey] = ['is_protected' => false];
+    }
 
     out("  IMPORTED: $name  →  $email  (neighborhood: $neighborhood)");
     $imported++;

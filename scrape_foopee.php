@@ -159,9 +159,12 @@ $baseUrl    = 'http://www.foopee.com/punk/the-list/';
 $totalPages = 38;
 $inserted   = 0;
 $skipped    = 0;
+$skippedProtected = 0;
 $errors     = 0;
 
 $stmt = $pdo->prepare(panicScrapedEventsUpsertSql($pdo));
+$protectedVenueNames = panicLoadProtectedProfileNameSet($pdo, 'venue');
+$protectedBandNames  = panicLoadProtectedProfileNameSet($pdo, 'band');
 
 for ($page = 1; $page <= $totalPages; $page++) {
     $url  = $baseUrl . "by-date.{$page}.html";
@@ -191,6 +194,7 @@ for ($page = 1; $page <= $totalPages; $page++) {
 
     $pageInserted = 0;
     $pageSkipped  = 0;
+    $pageProtected = 0;
 
     foreach ($dateLis as $dateLi) {
         // Get the date text from <b> inside the <a name="...">
@@ -232,6 +236,7 @@ for ($page = 1; $page <= $totalPages; $page++) {
                     $venueName = $venueRaw;
                     $venueCity = '';
                 }
+                $venueName = panicNormalizeVenueName($venueName);
 
                 // Only SF venues
                 if ($venueCity !== 'S.F.') {
@@ -246,7 +251,12 @@ for ($page = 1; $page <= $totalPages; $page++) {
                     $bName = foopee_decode(foopee_node_text($bn));
                     if ($bName) $bands[] = $bName;
                 }
-                $bandsJson = json_encode($bands, JSON_UNESCAPED_UNICODE);
+                $bands = panicNormalizeBandList($bands);
+                if (panicEventTouchesProtectedProfiles($venueName, $bands, $protectedVenueNames, $protectedBandNames)) {
+                    $pageProtected++;
+                    continue;
+                }
+                $bandsJson = panicResolveScrapedEventBandsJson($pdo, $eventDate, $venueName, $bands);
 
                 // Raw meta: strip_tags of full li text, then remove venue and band strings
                 $liText = foopee_decode(strip_tags($showLi->ownerDocument->saveHTML($showLi)));
@@ -293,7 +303,8 @@ for ($page = 1; $page <= $totalPages; $page++) {
 
     $inserted += $pageInserted;
     $skipped  += $pageSkipped;
-    echo "  SF shows inserted/replaced: {$pageInserted}, non-SF skipped: {$pageSkipped}\n";
+    $skippedProtected += $pageProtected;
+    echo "  SF shows inserted/replaced: {$pageInserted}, non-SF skipped: {$pageSkipped}, protected skipped: {$pageProtected}\n";
     flush();
 
     if ($page < $totalPages) {
@@ -305,4 +316,5 @@ echo "\n=====================\n";
 echo "Scrape complete.\n";
 echo "Total SF shows inserted/replaced: {$inserted}\n";
 echo "Non-SF shows skipped: {$skipped}\n";
+echo "Protected venue/band matches skipped: {$skippedProtected}\n";
 echo "Errors: {$errors}\n";

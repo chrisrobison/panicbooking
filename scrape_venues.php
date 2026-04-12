@@ -51,6 +51,32 @@ function venues_clean(string $s): string {
 }
 
 function venues_insert(PDO $pdo, PDOStatement $stmt, array $data): bool {
+    global $protectedVenueNames, $protectedBandNames, $protectedSkippedTotal;
+
+    $eventDate = trim((string)($data[':event_date'] ?? ''));
+    $venueName = panicNormalizeVenueName((string)($data[':venue_name'] ?? ''));
+    $data[':venue_name'] = $venueName;
+    $data[':venue_city'] = venues_clean((string)($data[':venue_city'] ?? ''));
+
+    $bandsRaw = json_decode((string)($data[':bands'] ?? '[]'), true);
+    $bands = is_array($bandsRaw) ? panicNormalizeBandList($bandsRaw) : [];
+
+    if (panicEventTouchesProtectedProfiles(
+        $venueName,
+        $bands,
+        $protectedVenueNames ?? [],
+        $protectedBandNames ?? []
+    )) {
+        $protectedSkippedTotal++;
+        return false;
+    }
+
+    if ($eventDate !== '' && $venueName !== '') {
+        $data[':bands'] = panicResolveScrapedEventBandsJson($pdo, $eventDate, $venueName, $bands);
+    } else {
+        $data[':bands'] = json_encode($bands, JSON_UNESCAPED_UNICODE);
+    }
+
     try {
         $stmt->execute($data);
         return true;
@@ -109,6 +135,9 @@ function venues_parse_short_date(string $s): string {
 // ------------------------------------------------------------
 
 $insertStmt = $pdo->prepare(panicScrapedEventsUpsertSql($pdo));
+$protectedVenueNames = panicLoadProtectedProfileNameSet($pdo, 'venue');
+$protectedBandNames  = panicLoadProtectedProfileNameSet($pdo, 'band');
+$protectedSkippedTotal = 0;
 
 // ------------------------------------------------------------
 // CLI / web argument
@@ -892,6 +921,7 @@ echo "\n=====================\n";
 echo "Venue scrape complete.\n";
 $grandTotal = array_sum($totals);
 echo "Total events inserted/replaced: {$grandTotal}\n";
+echo "Protected venue/band matches skipped: {$protectedSkippedTotal}\n";
 
 $labelMap = [
     'scrape_gamh'          => 'GAMH',
