@@ -115,13 +115,24 @@ function handleVenuesGet(PDO $pdo, int $id): void {
 
 function handleVenuesUpdate(PDO $pdo, int $id): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $current = apiCurrentUser();
+
+    if ($id <= 0) {
+        errorResponse('Invalid venue id', 422);
+    }
+
+    $targetStmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND type = 'venue' LIMIT 1");
+    $targetStmt->execute([$id]);
+    if (!$targetStmt->fetchColumn()) {
+        errorResponse('Venue not found', 404);
+    }
 
     if (!$current['is_admin'] && ($current['id'] !== $id || $current['type'] !== 'venue')) {
         errorResponse('Forbidden', 403);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $body = apiReadJsonBody();
 
     $allowed = [
         'name','address','neighborhood','capacity','description','contact_email','contact_phone',
@@ -145,6 +156,22 @@ function handleVenuesUpdate(PDO $pdo, int $id): void {
     if (isset($data['genres_welcomed']) && !is_array($data['genres_welcomed'])) {
         $data['genres_welcomed'] = [];
     }
+    if (isset($data['contact_email'])) {
+        $data['contact_email'] = strtolower(trim((string)$data['contact_email']));
+        if ($data['contact_email'] !== '' && !filter_var($data['contact_email'], FILTER_VALIDATE_EMAIL)) {
+            errorResponse('contact_email is invalid', 422);
+        }
+    }
+    if (isset($data['capacity'])) {
+        if ($data['capacity'] < 0 || $data['capacity'] > 100000) {
+            errorResponse('capacity is out of range', 422);
+        }
+    }
+    if (isset($data['booking_lead_time_days'])) {
+        if ($data['booking_lead_time_days'] < 0 || $data['booking_lead_time_days'] > 3650) {
+            errorResponse('booking_lead_time_days is out of range', 422);
+        }
+    }
 
     // Load existing, merge
     $stmt = $pdo->prepare("SELECT data FROM profiles WHERE user_id = ?");
@@ -162,7 +189,18 @@ function handleVenuesUpdate(PDO $pdo, int $id): void {
 
 function handleVenuesDelete(PDO $pdo, int $id): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $current = apiCurrentUser();
+
+    if ($id <= 0) {
+        errorResponse('Invalid venue id', 422);
+    }
+
+    $targetStmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND type = 'venue' LIMIT 1");
+    $targetStmt->execute([$id]);
+    if (!$targetStmt->fetchColumn()) {
+        errorResponse('Venue not found', 404);
+    }
 
     if (!$current['is_admin'] && ($current['id'] !== $id || $current['type'] !== 'venue')) {
         errorResponse('Forbidden', 403);
@@ -170,6 +208,9 @@ function handleVenuesDelete(PDO $pdo, int $id): void {
 
     $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
     $stmt->execute([$id]);
+    if ($stmt->rowCount() === 0) {
+        errorResponse('Venue not found', 404);
+    }
 
     // Only log out if the user deleted their own account
     if ($current['id'] === $id) {

@@ -30,14 +30,34 @@ function bookingApiErrorStatus(Throwable $e): int {
         return 404;
     }
 
-    return 400;
+    return 500;
+}
+
+function bookingApiErrorMessage(Throwable $e): string {
+    if ($e instanceof InvalidArgumentException) {
+        return $e->getMessage();
+    }
+
+    $message = trim((string)$e->getMessage());
+    $normalized = strtolower($message);
+    if (str_contains($normalized, 'forbidden') || str_contains($normalized, 'not found')) {
+        return $message;
+    }
+
+    panicLog('booking_api_error', [
+        'type' => get_class($e),
+        'message' => $message,
+    ], 'error');
+    return 'Unable to process booking request';
 }
 
 /**
  * POST /api/bookings/interest — LEGACY PUBLIC endpoint
  */
 function handleBookingInterestCreate(PDO $pdo): void {
+    apiRequireCsrf();
     $body = bookingApiReadBody();
+    $current = apiCurrentUser();
 
     $venue_name      = trim($body['venue_name']      ?? '');
     $venue_city      = trim($body['venue_city']      ?? 'S.F.');
@@ -54,6 +74,11 @@ function handleBookingInterestCreate(PDO $pdo): void {
     }
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $event_date)) {
         $errors[] = 'event_date must be in YYYY-MM-DD format';
+    } else {
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $event_date);
+        if (!$dt || $dt->format('Y-m-d') !== $event_date) {
+            $errors[] = 'event_date must be in YYYY-MM-DD format';
+        }
     }
     if ($requester_name === '') {
         $errors[] = 'requester_name is required';
@@ -71,6 +96,12 @@ function handleBookingInterestCreate(PDO $pdo): void {
 
     if (!in_array($requester_type, ['band', 'promoter', 'other'], true)) {
         $requester_type = 'band';
+    }
+
+    if ($current && !$current['is_admin'] && ($current['type'] ?? '') === 'band') {
+        $band_profile_id = (int)$current['id'];
+    } elseif (!$current || !$current['is_admin']) {
+        $band_profile_id = null;
     }
 
     $stmt = $pdo->prepare("\n        INSERT INTO booking_interests\n            (venue_name, venue_city, event_date, requester_type, requester_name, requester_email, message, band_profile_id)\n        VALUES\n            (:venue_name, :venue_city, :event_date, :requester_type, :requester_name, :requester_email, :message, :band_profile_id)\n    ");
@@ -94,6 +125,11 @@ function handleBookingInterestCreate(PDO $pdo): void {
  */
 function handleBookingInterestsList(PDO $pdo): void {
     apiRequireAuth();
+    $current = apiCurrentUser();
+
+    if (!$current['is_admin'] && ($current['type'] ?? '') !== 'venue') {
+        errorResponse('Forbidden', 403);
+    }
 
     $venue_name = trim($_GET['venue_name'] ?? '');
     $date_from  = trim($_GET['date_from']  ?? '');
@@ -104,6 +140,18 @@ function handleBookingInterestsList(PDO $pdo): void {
 
     $where  = [];
     $params = [];
+
+    if (!$current['is_admin']) {
+        $profileStmt = $pdo->prepare("SELECT data FROM profiles WHERE user_id = ? LIMIT 1");
+        $profileStmt->execute([(int)$current['id']]);
+        $profile = json_decode((string)$profileStmt->fetchColumn(), true) ?: [];
+        $ownVenueName = trim((string)($profile['name'] ?? ''));
+        if ($ownVenueName === '') {
+            jsonResponse(['interests' => [], 'limit' => $limit, 'offset' => $offset]);
+        }
+        $where[] = 'LOWER(venue_name) = :owned_venue_name';
+        $params[':owned_venue_name'] = strtolower($ownVenueName);
+    }
 
     if ($venue_name !== '') {
         $where[]               = 'venue_name LIKE :venue_name';
@@ -190,7 +238,7 @@ function handleBookingOpportunityCreate(PDO $pdo): void {
             'opportunity' => $opportunity,
         ], 201);
     } catch (Throwable $e) {
-        errorResponse($e->getMessage(), bookingApiErrorStatus($e));
+        errorResponse(bookingApiErrorMessage($e), bookingApiErrorStatus($e));
     }
 }
 
@@ -241,7 +289,7 @@ function handleBookingOpportunityStatusUpdate(PDO $pdo, int $id): void {
             'opportunity' => $updated,
         ]);
     } catch (Throwable $e) {
-        errorResponse($e->getMessage(), bookingApiErrorStatus($e));
+        errorResponse(bookingApiErrorMessage($e), bookingApiErrorStatus($e));
     }
 }
 
@@ -261,7 +309,7 @@ function handleBookingInquiryCreate(PDO $pdo, int $opportunityId): void {
             'booking' => $booking,
         ], 201);
     } catch (Throwable $e) {
-        errorResponse($e->getMessage(), bookingApiErrorStatus($e));
+        errorResponse(bookingApiErrorMessage($e), bookingApiErrorStatus($e));
     }
 }
 
@@ -291,7 +339,7 @@ function handleBookingMineList(PDO $pdo): void {
             'offset' => $offset,
         ]);
     } catch (Throwable $e) {
-        errorResponse($e->getMessage(), bookingApiErrorStatus($e));
+        errorResponse(bookingApiErrorMessage($e), bookingApiErrorStatus($e));
     }
 }
 
@@ -318,7 +366,7 @@ function handleBookingRequestsList(PDO $pdo): void {
             'offset' => $offset,
         ]);
     } catch (Throwable $e) {
-        errorResponse($e->getMessage(), bookingApiErrorStatus($e));
+        errorResponse(bookingApiErrorMessage($e), bookingApiErrorStatus($e));
     }
 }
 
@@ -360,7 +408,7 @@ function handleBookingTransition(PDO $pdo, int $id): void {
             'booking' => $booking,
         ]);
     } catch (Throwable $e) {
-        errorResponse($e->getMessage(), bookingApiErrorStatus($e));
+        errorResponse(bookingApiErrorMessage($e), bookingApiErrorStatus($e));
     }
 }
 

@@ -1,5 +1,7 @@
 <?php
 // $currentPage must be set by the including file
+require_once __DIR__ . '/csrf.php';
+
 $user = currentUser();
 
 $navItems = [];
@@ -72,10 +74,13 @@ if (isAdmin()) {
 
         <div class="sidebar-footer">
             <?php if ($user): ?>
-            <a href="/app/logout.php" class="nav-link nav-logout">
-                <span class="nav-icon">🚪</span>
-                <span class="nav-label">Logout</span>
-            </a>
+            <form method="post" action="/app/logout.php" style="margin:0;">
+                <?= csrfInputField() ?>
+                <button type="submit" class="nav-link nav-logout" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-label">Logout</span>
+                </button>
+            </form>
             <?php else: ?>
             <a href="/app/login.php" class="nav-link">
                 <span class="nav-icon">🔑</span>
@@ -92,3 +97,6 @@ if (isAdmin()) {
     <!-- Overlay for mobile -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 </div><!-- /.app-layout -->
+<script>
+window.APP_CSRF_TOKEN = <?= json_encode(csrfToken()) ?>;
+</script>

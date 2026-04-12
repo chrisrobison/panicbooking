@@ -1,11 +1,12 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../../lib/session.php';
+
+panicStartSession();
 
 function requireAuth() {
     if (!isLoggedIn()) {
-        header('Location: /app/login.php');
+        $next = urlencode((string)($_SERVER['REQUEST_URI'] ?? '/app/dashboard.php'));
+        header('Location: /app/login.php?next=' . $next);
         exit;
     }
 }
@@ -41,14 +42,11 @@ function login(int $userId, string $email, string $type, bool $isAdmin = false):
     $_SESSION['user_email']    = $email;
     $_SESSION['user_type']     = $type;
     $_SESSION['user_is_admin'] = $isAdmin;
+    $_SESSION['_auth_at']      = time();
+    $_SESSION['_last_activity'] = time();
+    $_SESSION['_last_regenerated_at'] = time();
 }
 
 function logout(): void {
-    $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
-        $p = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $p['path'], $p['domain'], $p['secure'], $p['httponly']);
-    }
-    session_destroy();
+    panicDestroySession('logout');
 }

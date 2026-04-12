@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 requireAdmin();
@@ -69,6 +70,7 @@ $currentPage = 'admin';
     <script src="/app/assets/js/app.js"></script>
     <script>
     (function() {
+        const csrfToken = <?= json_encode(csrfToken()) ?>;
         const statusEl = document.getElementById('statusFilter');
         const searchEl = document.getElementById('claimsSearchQ');
         const bodyEl = document.getElementById('claimsBody');
@@ -165,7 +167,10 @@ $currentPage = 'admin';
                 const resp = await fetch(`/api/admin/claims/${id}/approve`, {
                     method: 'POST',
                     credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                    },
                     body: JSON.stringify({ review_notes: notes.trim() }),
                 });
                 const data = await resp.json();
@@ -187,7 +192,10 @@ $currentPage = 'admin';
                 const resp = await fetch(`/api/admin/claims/${id}/reject`, {
                     method: 'POST',
                     credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                    },
                     body: JSON.stringify({ review_notes: notes.trim() }),
                 });
                 const data = await resp.json();

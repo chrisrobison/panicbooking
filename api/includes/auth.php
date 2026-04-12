@@ -1,7 +1,7 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../../lib/session.php';
+
+panicStartSession();
 
 function apiRequireAuth(): void {
     if (!apiIsLoggedIn()) {
@@ -38,22 +38,29 @@ function apiRequireAdmin(): void {
     }
 }
 
+function apiRequireType(string $type): void {
+    apiRequireAuth();
+    $user = apiCurrentUser();
+    if (!apiIsAdmin() && ($user['type'] ?? '') !== $type) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Forbidden']);
+        exit;
+    }
+}
+
 function apiLogin(int $userId, string $email, string $type, bool $isAdmin = false): void {
     session_regenerate_id(true);
     $_SESSION['user_id']       = $userId;
     $_SESSION['user_email']    = $email;
     $_SESSION['user_type']     = $type;
     $_SESSION['user_is_admin'] = $isAdmin;
+    $_SESSION['_auth_at']      = time();
+    $_SESSION['_last_activity'] = time();
+    $_SESSION['_last_regenerated_at'] = time();
 }
 
 function apiLogout(): void {
-    $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
-        $p = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $p['path'], $p['domain'], $p['secure'], $p['httponly']);
-    }
-    session_destroy();
+    panicDestroySession('api_logout');
 }
 
 function apiCsrfToken(): string {

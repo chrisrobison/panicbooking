@@ -9,6 +9,9 @@
  *   php update_venues.php
  */
 
+require_once __DIR__ . '/lib/security.php';
+panicScriptGuard('update_venues.php');
+
 $isCli = (php_sapi_name() === 'cli');
 
 function out(string $msg): void {

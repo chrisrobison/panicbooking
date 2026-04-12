@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 requireAdmin();
@@ -101,7 +102,7 @@ $currentPage = 'admin';
                     </div>
                     <div class="form-group">
                         <label>Password</label>
-                        <input type="text" id="newVenuePassword" value="demo1234" placeholder="demo1234">
+                        <input type="password" id="newVenuePassword" placeholder="Set a strong password">
                     </div>
                     <div class="form-group" style="flex:0 0 auto">
                         <label>&nbsp;</label>
@@ -151,7 +152,7 @@ $currentPage = 'admin';
                     </div>
                     <div class="form-group">
                         <label>Password</label>
-                        <input type="text" id="newBandPassword" value="demo1234" placeholder="demo1234">
+                        <input type="password" id="newBandPassword" placeholder="Set a strong password">
                     </div>
                     <div class="form-group" style="flex:0 0 auto">
                         <label>&nbsp;</label>
@@ -227,6 +228,7 @@ $currentPage = 'admin';
     <script src="/app/assets/js/app.js"></script>
     <script>
     (function() {
+        const csrfToken = <?= json_encode(csrfToken()) ?>;
         const LIMIT = 50;
         const CURRENT_USER_ID = <?= (int)$user['id'] ?>;
 
@@ -361,7 +363,11 @@ $currentPage = 'admin';
         window.deleteUser = function(id, type) {
             if (!confirm(`Delete this ${type}? This cannot be undone.`)) return;
             const endpoint = type === 'band' ? `/api/bands/${id}` : `/api/venues/${id}`;
-            fetch(endpoint, { method: 'DELETE', credentials: 'same-origin' })
+            fetch(endpoint, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-Token': csrfToken },
+                credentials: 'same-origin',
+            })
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
@@ -379,10 +385,11 @@ $currentPage = 'admin';
             const name  = document.getElementById('newVenueName').value.trim();
             const email = document.getElementById('newVenueEmail').value.trim();
             const pass  = document.getElementById('newVenuePassword').value.trim();
-            if (!email) { showToast('Email is required', 'error'); return; }
+            if (!email || !pass) { showToast('Email and password are required', 'error'); return; }
             addUser('venue', name, email, pass, () => {
                 document.getElementById('newVenueName').value  = '';
                 document.getElementById('newVenueEmail').value = '';
+                document.getElementById('newVenuePassword').value = '';
                 loadVenues();
             });
         });
@@ -392,10 +399,11 @@ $currentPage = 'admin';
             const name  = document.getElementById('newBandName').value.trim();
             const email = document.getElementById('newBandEmail').value.trim();
             const pass  = document.getElementById('newBandPassword').value.trim();
-            if (!email) { showToast('Email is required', 'error'); return; }
+            if (!email || !pass) { showToast('Email and password are required', 'error'); return; }
             addUser('band', name, email, pass, () => {
                 document.getElementById('newBandName').value  = '';
                 document.getElementById('newBandEmail').value = '';
+                document.getElementById('newBandPassword').value = '';
                 loadBands();
             });
         });
@@ -403,9 +411,12 @@ $currentPage = 'admin';
         function addUser(type, name, email, pass, onSuccess) {
             fetch('/api/admin/users', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
                 credentials: 'same-origin',
-                body: JSON.stringify({ type, name, email, password: pass || 'demo1234' })
+                body: JSON.stringify({ type, name, email, password: pass })
             })
             .then(r => r.json())
             .then(data => {
@@ -474,7 +485,10 @@ $currentPage = 'admin';
         function setAdminFlag(id, flag, onSuccess) {
             fetch(`/api/admin/users/${id}/admin`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
                 credentials: 'same-origin',
                 body: JSON.stringify({ is_admin: flag })
             })

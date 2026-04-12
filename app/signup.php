@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 function normalizeNextPath(?string $next): string {
     $next = trim((string)$next);
@@ -26,6 +27,7 @@ $error   = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfRequireValid($_POST['csrf_token'] ?? '');
     $email    = strtolower(trim($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm_password'] ?? '';
@@ -107,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" action="/app/signup.php" class="auth-form">
+                <?= csrfInputField() ?>
                 <input type="hidden" name="next" value="<?= htmlspecialchars($nextPath) ?>">
                 <div class="form-group">
                     <label for="email">Email address</label>

@@ -179,8 +179,9 @@ function handleTicketingCreateOrder(PDO $pdo): void {
 }
 
 function handleTicketingMarkOrderPaid(PDO $pdo): void {
-    // Public endpoint for demo mode completion flow.
+    apiRequireAuth();
     apiRequireCsrf();
+    $user = apiCurrentUser();
 
     if (paymentMode() !== 'demo') {
         errorResponse('mark_order_paid is only available in demo mode', 403);
@@ -191,6 +192,13 @@ function handleTicketingMarkOrderPaid(PDO $pdo): void {
     if ($orderId <= 0) {
         errorResponse('order_id is required', 422);
     }
+
+    $order = paymentOrderById($pdo, $orderId);
+    if (!$order) {
+        errorResponse('Order not found', 404);
+    }
+
+    ticketingApiEnsureManagerForEvent($pdo, $user, (int)$order['event_id']);
 
     $reference = trim((string)($body['payment_reference'] ?? ''));
     if ($reference === '') {

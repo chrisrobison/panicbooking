@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../lib/security.php';
 
 try {
     $pdo = panicConnectPdo();
@@ -416,6 +417,20 @@ CREATE TABLE IF NOT EXISTS payment_webhook_events (
 );
 CREATE INDEX IF NOT EXISTS idx_payment_webhook_events_status ON payment_webhook_events(provider, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_payment_webhook_events_order ON payment_webhook_events(related_order_id);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME,
+  request_ip TEXT NOT NULL DEFAULT '',
+  request_user_agent TEXT NOT NULL DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expiry ON password_reset_tokens(expires_at, used_at);
 ");
 
 // Migration: add source column for multi-venue scraping
@@ -438,10 +453,19 @@ try { $pdo->exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT
 $pdo->exec("CREATE INDEX IF NOT EXISTS idx_profiles_type_archived ON profiles(type, is_archived, is_generic, is_claimed)");
 $pdo->exec("CREATE INDEX IF NOT EXISTS idx_profiles_claimed_by ON profiles(claimed_by_user_id)");
 
-// Seed sample data (INSERT OR IGNORE with fixed IDs)
-$demoPassword = password_hash('demo1234', PASSWORD_DEFAULT);
+// Seed demo data only when explicitly enabled.
+$demoSeedEnabled = panicEnvBool('PB_ENABLE_DEMO_SEED', false);
+if ($demoSeedEnabled) {
+    $seedPassword = panicEnv('PB_DEMO_SEED_PASSWORD', '');
+    if ($seedPassword === '') {
+        $seedPassword = bin2hex(random_bytes(10));
+        panicLog('demo_seed_password_generated', [
+            'note' => 'Set PB_DEMO_SEED_PASSWORD to use a deterministic value for demo users',
+        ], 'warning');
+    }
+    $demoPassword = password_hash($seedPassword, PASSWORD_DEFAULT);
 
-$pdo->exec("
+    $pdo->exec("
 INSERT OR IGNORE INTO users (id, email, password_hash, type) VALUES
   (1, 'fogcityramblers@example.com', '$demoPassword', 'band'),
   (2, 'staticdischarge@example.com', '$demoPassword', 'band'),
@@ -584,9 +608,10 @@ $venue3 = json_encode([
 ]);
 
 $stmt = $pdo->prepare("INSERT OR IGNORE INTO profiles (id, user_id, type, data) VALUES (?, ?, ?, ?)");
-$stmt->execute([1, 1, 'band', $band1]);
-$stmt->execute([2, 2, 'band', $band2]);
-$stmt->execute([3, 3, 'band', $band3]);
-$stmt->execute([4, 4, 'venue', $venue1]);
-$stmt->execute([5, 5, 'venue', $venue2]);
-$stmt->execute([6, 6, 'venue', $venue3]);
+    $stmt->execute([1, 1, 'band', $band1]);
+    $stmt->execute([2, 2, 'band', $band2]);
+    $stmt->execute([3, 3, 'band', $band3]);
+    $stmt->execute([4, 4, 'venue', $venue1]);
+    $stmt->execute([5, 5, 'venue', $venue2]);
+    $stmt->execute([6, 6, 'venue', $venue3]);
+}

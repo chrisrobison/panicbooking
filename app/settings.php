@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 requireAuth();
 $user        = currentUser();
@@ -77,6 +78,8 @@ $currentPage = 'settings';
     <div id="toast" class="toast"></div>
     <script src="/app/assets/js/app.js"></script>
     <script>
+        const csrfToken = <?= json_encode(csrfToken()) ?>;
+
         document.getElementById('emailForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const email = document.getElementById('new_email').value.trim();
@@ -88,7 +91,10 @@ $currentPage = 'settings';
             try {
                 const resp = await fetch('/api/users/me', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                    },
                     credentials: 'same-origin',
                     body: JSON.stringify({ new_email: email, current_password: password })
                 });
@@ -125,7 +131,10 @@ $currentPage = 'settings';
             try {
                 const resp = await fetch('/api/users/me', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                    },
                     credentials: 'same-origin',
                     body: JSON.stringify({ new_password: newPw, current_password: current })
                 });
@@ -147,6 +156,7 @@ $currentPage = 'settings';
             try {
                 const resp = await fetch('/api/users/me', {
                     method: 'DELETE',
+                    headers: { 'X-CSRF-Token': csrfToken },
                     credentials: 'same-origin'
                 });
                 if (resp.ok) {

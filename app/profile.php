@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/functions.php';
 
 requireAuth();
@@ -495,6 +496,7 @@ $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
     <script>
         const USER_TYPE = '<?= $profileUser['type'] ?>';
         const USER_ID   = <?= (int)$profileUser['id'] ?>;
+        const csrfToken = <?= json_encode(csrfToken()) ?>;
 
         document.getElementById('profileForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -548,7 +550,10 @@ $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
             try {
                 const resp = await fetch(endpoint, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                    },
                     credentials: 'same-origin',
                     body: JSON.stringify(data)
                 });

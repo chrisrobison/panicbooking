@@ -1,5 +1,11 @@
 <?php
 
+require_once __DIR__ . '/../lib/security.php';
+
+if (!panicDebugEnabled()) {
+    ini_set('display_errors', '0');
+}
+
 /**
  * Central DB configuration + connection helper.
  *

@@ -95,21 +95,16 @@ function handleAdminListUsers(PDO $pdo): void {
  */
 function handleAdminCreateUser(PDO $pdo): void {
     apiRequireAdmin();
+    apiRequireCsrf();
 
-    $body  = json_decode(file_get_contents('php://input'), true) ?: [];
-    $email = strtolower(trim($body['email'] ?? ''));
-    $type  = $body['type'] ?? '';
-    $name  = trim($body['name'] ?? '');
-    $pass  = $body['password'] ?? 'demo1234';
+    $body  = apiReadJsonBody();
+    $email = apiRequireEmail($body['email'] ?? '', 'email');
+    $type  = apiRequireEnum($body['type'] ?? '', ['band', 'venue'], 'type');
+    $name  = apiSanitizeText($body['name'] ?? '', 180);
+    $pass  = (string)($body['password'] ?? '');
 
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        errorResponse('Valid email is required');
-    }
-    if (!in_array($type, ['band', 'venue'])) {
-        errorResponse('type must be band or venue');
-    }
-    if (strlen($pass) < 6) {
-        errorResponse('Password must be at least 6 characters');
+    if (strlen($pass) < 8) {
+        errorResponse('Password must be at least 8 characters', 422);
     }
 
     // Check duplicate
@@ -158,6 +153,7 @@ function handleAdminCreateUser(PDO $pdo): void {
  */
 function handleAdminDeleteUser(PDO $pdo, int $id): void {
     apiRequireAdmin();
+    apiRequireCsrf();
     $current = apiCurrentUser();
 
     if ($current['id'] === $id) {
@@ -181,13 +177,14 @@ function handleAdminDeleteUser(PDO $pdo, int $id): void {
  */
 function handleAdminSetAdminFlag(PDO $pdo, int $id): void {
     apiRequireAdmin();
+    apiRequireCsrf();
     $current = apiCurrentUser();
 
     if ($current['id'] === $id) {
         errorResponse('Cannot modify your own admin flag', 400);
     }
 
-    $body    = json_decode(file_get_contents('php://input'), true) ?: [];
+    $body    = apiReadJsonBody();
     $isAdmin = !empty($body['is_admin']) ? 1 : 0;
 
     $stmt = $pdo->prepare("UPDATE users SET is_admin = ? WHERE id = ?");

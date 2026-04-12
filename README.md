@@ -58,6 +58,11 @@ Use environment variables (single switch point):
 
 If no variables are set, app defaults to SQLite at `data/booking.db`.
 
+### Demo seed data
+- `PB_ENABLE_DEMO_SEED=1` to insert demo users/profiles on bootstrap.
+- `PB_DEMO_SEED_PASSWORD=...` to set demo account password.
+- Demo users are **not** seeded unless explicitly enabled.
+
 ### Payment mode
 - `PB_PAYMENT_MODE=demo` (default): creates paid orders immediately for development.
 - `PB_PAYMENT_MODE=stripe`: uses Stripe Checkout + webhook-confirmed order finalization.
@@ -67,6 +72,29 @@ If no variables are set, app defaults to SQLite at `data/booking.db`.
 - `PB_STRIPE_WEBHOOK_SECRET=whsec_...`
 - `PB_STRIPE_WEBHOOK_TOLERANCE=300` (optional, seconds)
 - `PB_STRIPE_API_BASE=https://api.stripe.com/v1` (optional override)
+- `PB_APP_KEY=...` recommended for receipt token HMAC and other app-level signing.
+  - If `PB_APP_KEY` is not set, app auto-generates a local key file at `data/.app_key` (or `PB_APP_KEY_FILE` path).
+
+### Session and auth hardening
+- `PB_SESSION_NAME=panicbooking_sid` (optional)
+- `PB_SESSION_IDLE_TIMEOUT=7200` seconds
+- `PB_SESSION_ABSOLUTE_TIMEOUT=86400` seconds
+- `PB_SESSION_REGEN_INTERVAL=900` seconds
+- `PB_SESSION_SAMESITE=Lax` (`Lax|Strict|None`)
+- Login/signup forms and sensitive app/API writes now require CSRF tokens.
+- API returns generic `500` errors for unhandled exceptions and logs server-side details.
+
+### Password reset flow (minimal)
+- App pages:
+  - `/app/password-reset-request.php`
+  - `/app/password-reset.php?token=...`
+- API endpoints:
+  - `POST /api/auth/password-reset-request`
+  - `POST /api/auth/password-reset-confirm`
+- Env:
+  - `PB_PASSWORD_RESET_TTL_MINUTES=30`
+  - `PB_PASSWORD_RESET_THROTTLE_SECONDS=120`
+  - `PB_PASSWORD_RESET_DEBUG=1` (optional local debug mode to return reset URL in response)
 
 ## Ticketing Flow
 
@@ -135,6 +163,8 @@ Under `/api/payments/...`:
 - Stripe webhook signatures are verified before processing.
 - Webhook events are logged with minimal metadata and deduplicated by Stripe event id.
 - Ticket issuance remains inside a single transactional finalize path to prevent duplicate tickets.
+- Maintenance/import/scrape scripts are CLI-first; web execution is disabled by default.
+  - To explicitly allow web execution: `PB_ALLOW_WEB_MAINTENANCE=1` and `PB_MAINTENANCE_TOKEN=...`
 
 ## Schema / Migration
 

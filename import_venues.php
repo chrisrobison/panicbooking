@@ -9,6 +9,9 @@
  * Safe to re-run — uses INSERT OR IGNORE on a unique generated email address.
  */
 
+require_once __DIR__ . '/lib/security.php';
+panicScriptGuard('import_venues.php');
+
 $isCli = (php_sapi_name() === 'cli');
 
 function out(string $msg): void {

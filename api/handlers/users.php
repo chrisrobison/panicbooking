@@ -31,11 +31,12 @@ function handleUsersGetMe(PDO $pdo): void {
 
 function handleUsersUpdateMe(PDO $pdo): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $user = apiCurrentUser();
-    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $body = apiReadJsonBody();
 
     $currentPassword = $body['current_password'] ?? '';
-    $newEmail        = trim($body['new_email'] ?? '');
+    $newEmail        = apiNormalizeEmail($body['new_email'] ?? '');
     $newPassword     = $body['new_password'] ?? '';
 
     if ($currentPassword === '') {
@@ -52,9 +53,7 @@ function handleUsersUpdateMe(PDO $pdo): void {
     }
 
     if ($newEmail !== '') {
-        if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
-            errorResponse('Invalid email address');
-        }
+        $newEmail = apiRequireEmail($newEmail, 'new_email');
         // Check not taken
         $stmt2 = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
         $stmt2->execute([$newEmail, $user['id']]);
@@ -80,6 +79,7 @@ function handleUsersUpdateMe(PDO $pdo): void {
 
 function handleUsersDeleteMe(PDO $pdo): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $user = apiCurrentUser();
 
     $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");

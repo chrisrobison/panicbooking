@@ -1,12 +1,10 @@
 <?php
 // Venue scraper: GAMH, Warfield, Regency Ballroom, Fillmore
 // CLI: php scrape_venues.php [venue]
-// Web: /scrape_venues.php?token=scrape2026[&venue=gamh|warfield|regency|fillmore|ticketmaster|all]
+// Web: disabled by default; set PB_ALLOW_WEB_MAINTENANCE=1 and PB_MAINTENANCE_TOKEN.
 
-if (PHP_SAPI !== 'cli' && ($_GET['token'] ?? '') !== 'scrape2026') {
-    http_response_code(403);
-    exit('Forbidden');
-}
+require_once __DIR__ . '/lib/security.php';
+panicScriptGuard('scrape_venues.php');
 
 if (PHP_SAPI !== 'cli') {
     header('Content-Type: text/plain; charset=utf-8');

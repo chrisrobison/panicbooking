@@ -3,12 +3,10 @@
 // Bands are marked is_generic=1, is_claimed=0 so real bands can later claim them.
 //
 // CLI:  php import_bands.php [--dry-run] [--quiet]
-// Web:  /import_bands.php?token=scrape2026[&dry=1]
+// Web:  disabled by default; set PB_ALLOW_WEB_MAINTENANCE=1 and PB_MAINTENANCE_TOKEN.
 
-if (PHP_SAPI !== 'cli' && ($_GET['token'] ?? '') !== 'scrape2026') {
-    http_response_code(403);
-    exit('Forbidden');
-}
+require_once __DIR__ . '/lib/security.php';
+panicScriptGuard('import_bands.php');
 
 if (PHP_SAPI !== 'cli') {
     header('Content-Type: text/plain; charset=utf-8');

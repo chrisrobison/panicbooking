@@ -131,14 +131,25 @@ function handleBandsGet(PDO $pdo, int $id): void {
 
 function handleBandsUpdate(PDO $pdo, int $id): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $current = apiCurrentUser();
+
+    if ($id <= 0) {
+        errorResponse('Invalid band id', 422);
+    }
+
+    $targetStmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND type = 'band' LIMIT 1");
+    $targetStmt->execute([$id]);
+    if (!$targetStmt->fetchColumn()) {
+        errorResponse('Band not found', 404);
+    }
 
     // Own profile or admin
     if (!$current['is_admin'] && ($current['id'] !== $id || $current['type'] !== 'band')) {
         errorResponse('Forbidden', 403);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $body = apiReadJsonBody();
 
     // Sanitize / whitelist fields
     $allowed = [
@@ -164,6 +175,21 @@ function handleBandsUpdate(PDO $pdo, int $id): void {
     if (isset($data['members']) && !is_array($data['members'])) $data['members'] = [];
     if (isset($data['seeking_gigs'])) $data['seeking_gigs'] = (bool)$data['seeking_gigs'];
     if (isset($data['available_days']) && !is_array($data['available_days'])) $data['available_days'] = [];
+    if (isset($data['contact_email'])) {
+        $data['contact_email'] = strtolower(trim((string)$data['contact_email']));
+        if ($data['contact_email'] !== '' && !filter_var($data['contact_email'], FILTER_VALIDATE_EMAIL)) {
+            errorResponse('contact_email is invalid', 422);
+        }
+    }
+    if (isset($data['set_length_min']) && ($data['set_length_min'] < 0 || $data['set_length_min'] > 600)) {
+        errorResponse('set_length_min is out of range', 422);
+    }
+    if (isset($data['set_length_max']) && ($data['set_length_max'] < 0 || $data['set_length_max'] > 600)) {
+        errorResponse('set_length_max is out of range', 422);
+    }
+    if (isset($data['set_length_min'], $data['set_length_max']) && $data['set_length_max'] > 0 && $data['set_length_min'] > $data['set_length_max']) {
+        errorResponse('set_length_min cannot exceed set_length_max', 422);
+    }
 
     // Load existing, merge
     $stmt = $pdo->prepare("SELECT data FROM profiles WHERE user_id = ?");
@@ -181,7 +207,18 @@ function handleBandsUpdate(PDO $pdo, int $id): void {
 
 function handleBandsDelete(PDO $pdo, int $id): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $current = apiCurrentUser();
+
+    if ($id <= 0) {
+        errorResponse('Invalid band id', 422);
+    }
+
+    $targetStmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND type = 'band' LIMIT 1");
+    $targetStmt->execute([$id]);
+    if (!$targetStmt->fetchColumn()) {
+        errorResponse('Band not found', 404);
+    }
 
     if (!$current['is_admin'] && ($current['id'] !== $id || $current['type'] !== 'band')) {
         errorResponse('Forbidden', 403);
@@ -189,6 +226,9 @@ function handleBandsDelete(PDO $pdo, int $id): void {
 
     $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
     $stmt->execute([$id]);
+    if ($stmt->rowCount() === 0) {
+        errorResponse('Band not found', 404);
+    }
 
     // Only log out if the user deleted their own account
     if ($current['id'] === $id) {

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/functions.php';
 
 requireAuth();
@@ -63,6 +64,7 @@ $currentPage = 'claims';
     <script src="/app/assets/js/app.js"></script>
     <script>
     (function() {
+        const csrfToken = <?= json_encode(csrfToken()) ?>;
         const bodyEl = document.getElementById('claimsTableBody');
         const statusEl = document.getElementById('claimStatusFilter');
         const refreshBtn = document.getElementById('refreshClaimsBtn');
@@ -135,6 +137,7 @@ $currentPage = 'claims';
             try {
                 const resp = await fetch(`/api/claims/${id}/cancel`, {
                     method: 'POST',
+                    headers: { 'X-CSRF-Token': csrfToken },
                     credentials: 'same-origin'
                 });
                 const data = await resp.json();

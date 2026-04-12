@@ -2,19 +2,30 @@
 // LastCall SF — API Entry Point
 // All requests routed through here via .htaccess rewrite
 
+require_once __DIR__ . '/../lib/security.php';
+
+if (!panicDebugEnabled()) {
+    ini_set('display_errors', '0');
+}
+
 // Headers
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
-// CORS (same-origin, but allow credentials)
+// CORS (same-origin only, allow credentials)
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-// Only allow the same host
 header('Vary: Origin');
 if (!empty($origin)) {
+    $originHost = (string)(parse_url($origin, PHP_URL_HOST) ?? '');
+    $requestHost = (string)($_SERVER['HTTP_HOST'] ?? '');
+    $requestHost = strtolower(preg_replace('/:\d+$/', '', $requestHost));
+    $originHost = strtolower($originHost);
+    if ($originHost !== '' && $originHost === $requestHost) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Credentials: true');
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
+        header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
+    }
 }
 
 // Handle preflight
@@ -23,15 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 // Load dependencies
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/response.php';
+require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/handlers/auth.php';
 require_once __DIR__ . '/handlers/bands.php';
 require_once __DIR__ . '/handlers/venues.php';
@@ -43,6 +50,22 @@ require_once __DIR__ . '/handlers/admin.php';
 require_once __DIR__ . '/handlers/claims.php';
 require_once __DIR__ . '/handlers/ticketing.php';
 require_once __DIR__ . '/handlers/payments.php';
+
+set_exception_handler(static function (Throwable $e): void {
+    panicLog('api_unhandled_exception', [
+        'path' => (string)($_SERVER['REQUEST_URI'] ?? ''),
+        'method' => (string)($_SERVER['REQUEST_METHOD'] ?? ''),
+        'message' => $e->getMessage(),
+        'type' => get_class($e),
+    ], 'error');
+
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode(['error' => 'Internal server error']);
+    exit;
+});
 
 // Parse route
 $requestUri    = $_SERVER['REQUEST_URI'] ?? '/';
@@ -127,6 +150,10 @@ if ($resource === 'dark-nights' && $method === 'GET') {
         handleAuthSignup($pdo);
     } elseif ($sub === 'logout' && $method === 'POST') {
         handleAuthLogout();
+    } elseif ($sub === 'password-reset-request' && $method === 'POST') {
+        handleAuthPasswordResetRequest($pdo);
+    } elseif ($sub === 'password-reset-confirm' && $method === 'POST') {
+        handleAuthPasswordResetConfirm($pdo);
     } elseif ($sub === 'me' && $method === 'GET') {
         handleAuthMe();
     } else {

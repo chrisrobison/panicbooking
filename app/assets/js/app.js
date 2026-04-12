@@ -6,6 +6,15 @@
 const APP_IS_ADMIN = window.APP_IS_ADMIN || false;
 const APP_USER = window.APP_USER || { loggedIn: false, type: '' };
 const APP_IS_LOGGED_IN = !!APP_USER.loggedIn;
+const APP_CSRF_TOKEN = window.APP_CSRF_TOKEN || '';
+
+function appCsrfHeaders(existing = {}) {
+    const headers = Object.assign({}, existing || {});
+    if (APP_CSRF_TOKEN) {
+        headers['X-CSRF-Token'] = APP_CSRF_TOKEN;
+    }
+    return headers;
+}
 
 function claimProfileHref(type, id) {
     return `/app/claim.php?type=${encodeURIComponent(type)}&id=${encodeURIComponent(String(id))}`;
@@ -340,7 +349,11 @@ function adminDeleteUser(id, type) {
     if (!confirm(`Delete this ${label}? This cannot be undone.`)) return;
 
     const endpoint = type === 'band' ? `/api/bands/${id}` : `/api/venues/${id}`;
-    fetch(endpoint, { method: 'DELETE', credentials: 'same-origin' })
+    fetch(endpoint, {
+        method: 'DELETE',
+        headers: appCsrfHeaders(),
+        credentials: 'same-origin'
+    })
         .then(r => r.json())
         .then(data => {
             if (data.success) {
@@ -1012,7 +1025,7 @@ function submitInterest(e) {
 
     fetch('/api/bookings/interest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: appCsrfHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'same-origin',
         body: JSON.stringify(payload),
     })

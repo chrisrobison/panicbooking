@@ -1,8 +1,8 @@
 <?php
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../../lib/session.php';
+
+panicStartSession();
 
 function csrfToken(): string {
     if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {

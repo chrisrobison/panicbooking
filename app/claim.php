@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/functions.php';
 
 $type = trim((string)($_GET['type'] ?? ''));
@@ -159,6 +160,7 @@ if (!$claimError && $entity && !$entity['is_generic']) {
     <?php if (!$claimError): ?>
     <script>
     (function() {
+        const csrfToken = <?= json_encode(csrfToken()) ?>;
         const form = document.getElementById('claimForm');
         const statusEl = document.getElementById('claimSaveStatus');
         if (!form) return;
@@ -183,7 +185,10 @@ if (!$claimError && $entity && !$entity['is_generic']) {
                 const resp = await fetch('/api/claims', {
                     method: 'POST',
                     credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                    },
                     body: JSON.stringify(payload),
                 });
                 const data = await resp.json();

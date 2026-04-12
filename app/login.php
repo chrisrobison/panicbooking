@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 function normalizeNextPath(?string $next): string {
     $next = trim((string)$next);
@@ -19,6 +20,7 @@ $error = '';
 $nextPath = normalizeNextPath($_GET['next'] ?? $_POST['next'] ?? '/app/dashboard.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfRequireValid($_POST['csrf_token'] ?? '');
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
@@ -38,6 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+$demoPasswordHint = panicEnv('PB_DEMO_SEED_PASSWORD', '');
+$showDemoAccounts = panicEnvBool('PB_ENABLE_DEMO_SEED', false)
+    && panicDebugEnabled()
+    && $demoPasswordHint !== '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -65,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" action="/app/login.php" class="auth-form">
+                <?= csrfInputField() ?>
                 <input type="hidden" name="next" value="<?= htmlspecialchars($nextPath) ?>">
                 <div class="form-group">
                     <label for="email">Email address</label>
@@ -83,14 +91,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="auth-switch">
                 Don't have an account? <a href="/app/signup.php?next=<?= urlencode($nextPath) ?>">Create one</a>
             </p>
+            <p class="auth-switch" style="margin-top:.45rem;">
+                Forgot password? <a href="/app/password-reset-request.php">Reset it</a>
+            </p>
 
-            <div class="auth-demo">
-                <p class="demo-label">Demo accounts (password: <code>demo1234</code>)</p>
-                <div class="demo-accounts">
-                    <span class="demo-item">fogcityramblers@example.com</span>
-                    <span class="demo-item">rustynail@example.com</span>
+            <?php if ($showDemoAccounts): ?>
+                <div class="auth-demo">
+                    <p class="demo-label">
+                        Demo accounts<?php if ($demoPasswordHint !== ''): ?> (password: <code><?= htmlspecialchars($demoPasswordHint) ?></code>)<?php endif; ?>
+                    </p>
+                    <div class="demo-accounts">
+                        <span class="demo-item">fogcityramblers@example.com</span>
+                        <span class="demo-item">rustynail@example.com</span>
+                    </div>
                 </div>
-            </div>
+            <?php endif; ?>
         </div>
     </div>
 </body>

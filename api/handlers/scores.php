@@ -75,9 +75,14 @@ function handleScoresGet(PDO $pdo, string $bandName): void {
  */
 function handleShowReportCreate(PDO $pdo): void {
     apiRequireAuth();
+    apiRequireCsrf();
 
     $user = apiCurrentUser();
-    $body = json_decode(file_get_contents('php://input'), true) ?? [];
+    $body = apiReadJsonBody();
+
+    if (!$user['is_admin'] && ($user['type'] ?? '') !== 'venue') {
+        errorResponse('Only venue users can submit show reports', 403);
+    }
 
     $bandName = trim($body['band_name'] ?? '');
     $eventDate = trim($body['event_date'] ?? '');
@@ -86,10 +91,7 @@ function handleShowReportCreate(PDO $pdo): void {
         errorResponse('band_name is required', 422);
         return;
     }
-    if ($eventDate === '') {
-        errorResponse('event_date is required', 422);
-        return;
-    }
+    $eventDate = apiRequireDateYmd($eventDate, 'event_date');
 
     $venueName          = trim($body['venue_name'] ?? '');
     $reportedAttendance = isset($body['reported_attendance']) ? (int)$body['reported_attendance'] : null;
@@ -97,6 +99,9 @@ function handleShowReportCreate(PDO $pdo): void {
     $coverCollected     = isset($body['cover_collected']) ? (int)$body['cover_collected'] : 0;
     $wouldRebook        = isset($body['would_rebook']) ? (int)(bool)$body['would_rebook'] : 1;
     $notes              = trim($body['notes'] ?? '');
+    if ($reportedAttendance !== null && ($reportedAttendance < 0 || $reportedAttendance > 1000000)) {
+        errorResponse('reported_attendance is out of range', 422);
+    }
 
     // Validate bar_impact value
     $validBarImpacts = ['', 'high', 'medium', 'low', 'none'];

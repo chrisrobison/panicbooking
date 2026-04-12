@@ -1,7 +1,10 @@
 <?php
 // Compute performer scores from scraped show history
 // CLI: php compute_scores.php [--band="Name"]
-// Web: /compute_scores.php?token=scrape2026[&band=Name]
+// Web: disabled by default; set PB_ALLOW_WEB_MAINTENANCE=1 and PB_MAINTENANCE_TOKEN.
+
+require_once __DIR__ . '/lib/security.php';
+panicScriptGuard('compute_scores.php');
 
 // =====================================================
 // TOKEN AUTH (web mode)
@@ -9,12 +12,6 @@
 $isCli = (php_sapi_name() === 'cli');
 
 if (!$isCli) {
-    $token = $_GET['token'] ?? '';
-    if ($token !== 'scrape2026') {
-        http_response_code(403);
-        echo json_encode(['error' => 'Forbidden']);
-        exit;
-    }
     header('Content-Type: text/plain; charset=utf-8');
 }
 

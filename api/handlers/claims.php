@@ -3,18 +3,12 @@
 
 function handleClaimsCreate(PDO $pdo): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $current = apiCurrentUser();
-    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $body = apiReadJsonBody();
 
-    $entityType = trim((string)($body['entity_type'] ?? ''));
-    $entityUserId = (int)($body['entity_user_id'] ?? 0);
-
-    if (!in_array($entityType, ['band', 'venue'], true)) {
-        errorResponse('entity_type must be band or venue');
-    }
-    if ($entityUserId <= 0) {
-        errorResponse('entity_user_id is required');
-    }
+    $entityType = apiRequireEnum($body['entity_type'] ?? '', ['band', 'venue'], 'entity_type');
+    $entityUserId = apiRequireId($body['entity_user_id'] ?? 0, 'entity_user_id');
     if ($current['type'] !== $entityType && !$current['is_admin']) {
         errorResponse('You can only claim profiles that match your account type', 403);
     }
@@ -53,7 +47,7 @@ function handleClaimsCreate(PDO $pdo): void {
 
     $representativeName = trim((string)($body['representative_name'] ?? ''));
     $representativeRole = trim((string)($body['representative_role'] ?? ''));
-    $contactEmail = strtolower(trim((string)($body['contact_email'] ?? $current['email'])));
+    $contactEmail = apiNormalizeEmail($body['contact_email'] ?? $current['email']);
     $contactPhone = trim((string)($body['contact_phone'] ?? ''));
     $website = trim((string)($body['website'] ?? ''));
     $evidenceLinks = trim((string)($body['evidence_links'] ?? ''));
@@ -65,9 +59,7 @@ function handleClaimsCreate(PDO $pdo): void {
     if ($supportingInfo === '') {
         errorResponse('Please provide supporting details for this claim');
     }
-    if ($contactEmail === '' || !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
-        errorResponse('A valid contact email is required');
-    }
+    $contactEmail = apiRequireEmail($contactEmail, 'contact_email');
 
     $entityFp = claimBuildFingerprint($entity['data'], $entityType, $entity['user_email']);
     $dedupe = claimFindDuplicateCandidates($pdo, $entityType, $entityUserId, $entityFp);
@@ -195,6 +187,7 @@ function handleClaimsMineGet(PDO $pdo, int $claimId): void {
 
 function handleClaimsCancel(PDO $pdo, int $claimId): void {
     apiRequireAuth();
+    apiRequireCsrf();
     $current = apiCurrentUser();
 
     $claim = claimFetchRawRequest($pdo, $claimId);
@@ -299,8 +292,9 @@ function handleAdminClaimGet(PDO $pdo, int $claimId): void {
 
 function handleAdminClaimApprove(PDO $pdo, int $claimId): void {
     apiRequireAdmin();
+    apiRequireCsrf();
     $current = apiCurrentUser();
-    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $body = apiReadJsonBody();
     $reviewNotes = trim((string)($body['review_notes'] ?? ''));
 
     claimApproveRequest($pdo, $claimId, (int)$current['id'], $reviewNotes, false);
@@ -309,8 +303,9 @@ function handleAdminClaimApprove(PDO $pdo, int $claimId): void {
 
 function handleAdminClaimReject(PDO $pdo, int $claimId): void {
     apiRequireAdmin();
+    apiRequireCsrf();
     $current = apiCurrentUser();
-    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $body = apiReadJsonBody();
     $reviewNotes = trim((string)($body['review_notes'] ?? ''));
     if ($reviewNotes === '') {
         errorResponse('Rejection reason is required');
