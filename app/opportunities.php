@@ -157,7 +157,7 @@ $activeStatuses = bookingWorkflowActiveStatuses();
     <?php endif; ?>
 
     <?php if ($canManage): ?>
-        <section class="card-form" style="margin-bottom:1rem;max-width:1000px;">
+        <section class="card-form" id="post-open-date" style="margin-bottom:1rem;max-width:1000px;">
             <h2 class="form-section-title">Post Open Date</h2>
             <form method="post" action="/app/opportunities.php">
                 <?= csrfInputField() ?>

@@ -71,6 +71,63 @@ function showToast(message, type = 'info') {
         sidebar.classList.remove('open');
         overlay.classList.remove('show');
     });
+
+    sidebar.querySelectorAll('a.nav-link').forEach((link) => {
+        link.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('show');
+        });
+    });
+})();
+
+// --- Grouped Sidebar Navigation ---
+(function() {
+    const groups = Array.from(document.querySelectorAll('.nav-group[data-collapsible="1"]'));
+    if (!groups.length) return;
+
+    const mobileQuery = window.matchMedia('(max-width: 768px)');
+
+    function setExpanded(group, expanded) {
+        group.classList.toggle('expanded', expanded);
+        const toggle = group.querySelector('.nav-group-toggle');
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+    }
+
+    groups.forEach((group) => {
+        group.dataset.mobileExpanded = group.classList.contains('expanded') ? '1' : '0';
+    });
+
+    function applyViewportState() {
+        groups.forEach((group) => {
+            if (mobileQuery.matches) {
+                setExpanded(group, group.dataset.mobileExpanded === '1');
+            } else {
+                setExpanded(group, true);
+            }
+        });
+    }
+
+    groups.forEach((group) => {
+        const toggle = group.querySelector('.nav-group-toggle');
+        if (!toggle) return;
+
+        toggle.addEventListener('click', () => {
+            if (!mobileQuery.matches) return;
+            const nextExpanded = group.dataset.mobileExpanded !== '1';
+            group.dataset.mobileExpanded = nextExpanded ? '1' : '0';
+            setExpanded(group, nextExpanded);
+        });
+    });
+
+    if (typeof mobileQuery.addEventListener === 'function') {
+        mobileQuery.addEventListener('change', applyViewportState);
+    } else if (typeof mobileQuery.addListener === 'function') {
+        mobileQuery.addListener(applyViewportState);
+    }
+
+    applyViewportState();
 })();
 
 // --- Modal ---
