@@ -1181,3 +1181,508 @@ function loadCompositeBadge(card) {
 (function() {
     if (document.querySelector('[data-band-name]')) initBandScores();
 })();
+
+// =====================================================
+// VENUE DARK NIGHTS PAGE
+// =====================================================
+
+let vdnData        = null;
+let vdnDateFrom    = null;   // 'YYYY-MM-01'
+let vdnSelectedDate = null;
+let vdnBandOffset  = 0;
+let vdnBandTotal   = 0;
+let vdnBandQuery   = '';
+let vdnBandGenre   = '';
+let vdnAllBands    = [];
+let vdnGenresInit  = false;
+const VDN_BAND_LIMIT = 24;
+
+function initVenueDarkNightsPage() {
+    const now = new Date();
+    vdnDateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+    loadVenueCalendar();
+
+    document.getElementById('vdnPrevBtn').addEventListener('click', () => {
+        const dt = new Date(vdnDateFrom + 'T00:00:00');
+        dt.setMonth(dt.getMonth() - 2);
+        vdnDateFrom = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-01`;
+        loadVenueCalendar();
+    });
+    document.getElementById('vdnNextBtn').addEventListener('click', () => {
+        const dt = new Date(vdnDateFrom + 'T00:00:00');
+        dt.setMonth(dt.getMonth() + 2);
+        vdnDateFrom = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-01`;
+        loadVenueCalendar();
+    });
+    document.getElementById('vdnTodayBtn').addEventListener('click', () => {
+        const now2 = new Date();
+        vdnDateFrom = `${now2.getFullYear()}-${String(now2.getMonth() + 1).padStart(2, '0')}-01`;
+        loadVenueCalendar();
+    });
+
+    // Band browser close
+    document.getElementById('vdnBrowserClose').addEventListener('click', closeVdnBrowser);
+    document.getElementById('vdnBrowserModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('vdnBrowserModal')) closeVdnBrowser();
+    });
+
+    // Invite back/cancel buttons
+    document.getElementById('vdnInviteBack').addEventListener('click', showVdnBrowserMain);
+    document.getElementById('vdnInviteCancelBtn').addEventListener('click', showVdnBrowserMain);
+
+    // Invite form submit
+    document.getElementById('vdnInviteForm').addEventListener('submit', submitVdnInvite);
+
+    // Post open date button
+    document.getElementById('vdnPostDateBtn').addEventListener('click', postVdnOpenDate);
+
+    // Band search (debounced)
+    const searchEl = document.getElementById('vdnBandSearch');
+    if (searchEl) {
+        searchEl.addEventListener('input', debounce(() => {
+            vdnBandQuery = searchEl.value.trim();
+            loadVdnBands(true);
+        }, 280));
+    }
+
+    // Load more
+    document.getElementById('vdnLoadMoreBtn').addEventListener('click', () => {
+        loadVdnBands(false);
+    });
+}
+
+// ── Calendar ──────────────────────────────────────────
+
+function loadVenueCalendar() {
+    const container = document.getElementById('vdnCalContainer');
+    container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading calendar...</p></div>';
+    document.getElementById('vdnStats').textContent = 'Loading...';
+
+    fetch(`/api/venue/calendar?date_from=${vdnDateFrom}&months=2`, { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = `<p class="empty-state">${escHtml(data.error)}</p>`;
+                return;
+            }
+            vdnData = data;
+            renderVenueCalendars(data);
+            updateVdnStats(data);
+        })
+        .catch(() => {
+            container.innerHTML = '<p class="empty-state">Failed to load calendar.</p>';
+        });
+}
+
+function renderVenueCalendars(data) {
+    const container  = document.getElementById('vdnCalContainer');
+    const bookedSet  = new Set(data.booked_dates || []);
+    const shows      = data.shows || {};
+    const today      = formatDateISO(new Date());
+
+    // Group dates into months
+    const monthGroups = {};
+    for (const d of data.dates || []) {
+        const ym = d.substring(0, 7);
+        if (!monthGroups[ym]) monthGroups[ym] = [];
+        monthGroups[ym].push(d);
+    }
+
+    let html = '<div class="vdn-months-wrap">';
+    for (const [ym, dates] of Object.entries(monthGroups)) {
+        html += buildMonthGrid(ym, dates, bookedSet, shows, today);
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Click handlers — dark nights → band browser
+    container.querySelectorAll('.vdn-day.dark[data-date]').forEach(cell => {
+        cell.addEventListener('click', () => openBandBrowser(cell.dataset.date));
+    });
+    // Click handlers — booked days → show detail
+    container.querySelectorAll('.vdn-day.booked[data-date]').forEach(cell => {
+        cell.addEventListener('click', () => {
+            openVdnShowDetail(cell.dataset.date, shows[cell.dataset.date] || []);
+        });
+    });
+}
+
+function buildMonthGrid(ym, dates, bookedSet, shows, today) {
+    const [year, month] = ym.split('-').map(Number);
+    const monthLabel = new Date(year, month - 1, 1)
+        .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+    // Monday-first offset: JS getDay() is 0=Sun; map to 0=Mon
+    const firstDow   = new Date(year, month - 1, 1).getDay();
+    const startPad   = (firstDow + 6) % 7;
+
+    let html = `<div class="vdn-month"><div class="vdn-month-title">${escHtml(monthLabel)}</div><div class="vdn-month-grid">`;
+    DOW.forEach(d => { html += `<div class="vdn-dow">${d}</div>`; });
+    for (let i = 0; i < startPad; i++) html += `<div class="vdn-day empty"></div>`;
+
+    for (const d of dates) {
+        const dayNum  = parseInt(d.substring(8), 10);
+        const isPast  = d < today;
+        const isToday = d === today;
+        const isBook  = bookedSet.has(d);
+
+        let cls   = 'vdn-day';
+        let inner = String(dayNum);
+        let title = '';
+
+        if (isToday) cls += ' today';
+
+        if (isBook) {
+            cls   += ' booked';
+            const dayShows = shows[d] || [];
+            title  = dayShows.map(s => s.title || 'Show').join(' / ');
+            inner += '<span class="vdn-day-dot"></span>';
+        } else if (isPast) {
+            cls += ' past';
+        } else {
+            cls   += ' dark';
+            inner += '<span class="vdn-day-plus">+</span>';
+        }
+
+        html += `<div class="${cls}" data-date="${escHtml(d)}" title="${escHtml(title)}">${inner}</div>`;
+    }
+
+    html += '</div></div>';
+    return html;
+}
+
+function updateVdnStats(data) {
+    const today  = formatDateISO(new Date());
+    const booked = (data.booked_dates || []).filter(d => d >= today).length;
+    const dark   = (data.dark_dates   || []).filter(d => d >= today).length;
+    document.getElementById('vdnStats').textContent =
+        `${booked} upcoming show${booked !== 1 ? 's' : ''} · ${dark} dark night${dark !== 1 ? 's' : ''}`;
+}
+
+function openVdnShowDetail(dateStr, shows) {
+    const modal   = document.getElementById('detailModal');
+    const content = document.getElementById('modalContent');
+    if (!modal || !content) return;
+
+    const fmtDate = new Date(dateStr + 'T00:00:00')
+        .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    let html = `<div class="modal-title">📅 ${escHtml(fmtDate)}</div>`;
+    if (!shows.length) {
+        html += '<p style="margin-top:.75rem;color:var(--text-muted)">No show details on record.</p>';
+    } else {
+        shows.forEach(show => {
+            html += `<div style="margin-top:1rem;padding:.85rem;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)">`;
+            html += `<div style="font-weight:600">${escHtml(show.title || 'Show')}</div>`;
+            if (show.bands && show.bands.length) {
+                html += `<div style="color:var(--text-muted);margin-top:.2rem;font-size:.85rem">${show.bands.map(escHtml).join(', ')}</div>`;
+            }
+            if (show.source && show.source !== 'ticketed') {
+                html += `<div style="color:var(--text-dim);font-size:.75rem;margin-top:.25rem">Source: ${escHtml(show.source)}</div>`;
+            }
+            if (show.ticket_url) {
+                html += `<a href="${escHtml(show.ticket_url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="margin-top:.6rem;display:inline-block">Buy Tickets ↗</a>`;
+            }
+            html += '</div>';
+        });
+    }
+
+    content.innerHTML = html;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+// ── Band Browser ──────────────────────────────────────
+
+function openBandBrowser(dateStr) {
+    vdnSelectedDate = dateStr;
+    vdnBandOffset   = 0;
+    vdnBandTotal    = 0;
+    vdnBandQuery    = '';
+    vdnBandGenre    = '';
+    vdnAllBands     = [];
+    vdnGenresInit   = false;
+
+    const fmtDate = new Date(dateStr + 'T00:00:00')
+        .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    document.getElementById('vdnBrowserDate').textContent = fmtDate;
+
+    // Reset search input + chips
+    const searchEl = document.getElementById('vdnBandSearch');
+    if (searchEl) searchEl.value = '';
+    document.querySelectorAll('.vdn-genre-chip').forEach(c => c.classList.remove('active'));
+
+    showVdnBrowserMain();
+
+    const modal = document.getElementById('vdnBrowserModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    loadVdnBands(true);
+}
+
+function showVdnBrowserMain() {
+    document.getElementById('vdnBrowserMain').style.display = '';
+    document.getElementById('vdnInviteView').style.display  = 'none';
+}
+
+function closeVdnBrowser() {
+    document.getElementById('vdnBrowserModal').style.display = 'none';
+    document.body.style.overflow = '';
+    showVdnBrowserMain();
+}
+
+function loadVdnBands(reset) {
+    if (reset) {
+        vdnBandOffset = 0;
+        vdnAllBands   = [];
+        document.getElementById('vdnBandGrid').innerHTML =
+            '<div class="loading-state"><div class="spinner"></div></div>';
+        document.getElementById('vdnLoadMoreWrap').style.display = 'none';
+    }
+
+    const qs = new URLSearchParams({ offset: vdnBandOffset, limit: VDN_BAND_LIMIT });
+    if (vdnBandQuery) qs.set('q', vdnBandQuery);
+    if (vdnBandGenre) qs.set('genre', vdnBandGenre);
+
+    fetch(`/api/venue/recommended-bands?${qs}`, { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('vdnBandGrid').innerHTML =
+                    `<p class="empty-state">${escHtml(data.error)}</p>`;
+                return;
+            }
+
+            // Build genre chips once
+            if (!vdnGenresInit && data.venue_genres && data.venue_genres.length) {
+                buildVdnGenreChips(data.venue_genres);
+                vdnGenresInit = true;
+            }
+
+            const incoming = data.bands || [];
+            vdnAllBands    = reset ? incoming : [...vdnAllBands, ...incoming];
+            vdnBandOffset  = vdnAllBands.length;
+            vdnBandTotal   = data.total || 0;
+
+            renderVdnBandGrid(vdnAllBands);
+
+            // Summary
+            const summaryEl = document.getElementById('vdnBrowserSummary');
+            if (summaryEl) {
+                const genreCount = vdnAllBands.filter(b => b.genre_matches && b.genre_matches.length > 0).length;
+                const playedCount = vdnAllBands.filter(b => b.played_here).length;
+                let parts = [`${vdnBandTotal} band${vdnBandTotal !== 1 ? 's' : ''} found`];
+                if (genreCount) parts.push(`${genreCount} genre match${genreCount !== 1 ? 'es' : ''}`);
+                if (playedCount) parts.push(`${playedCount} played here before`);
+                summaryEl.textContent = parts.join(' · ');
+            }
+
+            // Load more
+            const lmWrap = document.getElementById('vdnLoadMoreWrap');
+            lmWrap.style.display = vdnAllBands.length < vdnBandTotal ? '' : 'none';
+        })
+        .catch(() => {
+            document.getElementById('vdnBandGrid').innerHTML =
+                '<p class="empty-state">Failed to load bands.</p>';
+        });
+}
+
+function buildVdnGenreChips(genres) {
+    const wrap = document.getElementById('vdnGenreChips');
+    if (!wrap || wrap.childElementCount > 0) return;
+
+    genres.forEach(genre => {
+        const btn = document.createElement('button');
+        btn.type      = 'button';
+        btn.className = 'chip vdn-genre-chip';
+        btn.textContent = genre;
+        btn.dataset.genre = genre;
+        btn.addEventListener('click', () => {
+            if (vdnBandGenre === genre) {
+                vdnBandGenre = '';
+                btn.classList.remove('active');
+            } else {
+                document.querySelectorAll('.vdn-genre-chip').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                vdnBandGenre = genre;
+            }
+            loadVdnBands(true);
+        });
+        wrap.appendChild(btn);
+    });
+}
+
+function renderVdnBandGrid(bands) {
+    const grid = document.getElementById('vdnBandGrid');
+    if (!bands.length) {
+        grid.innerHTML = '<p class="empty-state" style="grid-column:1/-1">No matching bands found.</p>';
+        return;
+    }
+    grid.innerHTML = bands.map(renderVdnBandCard).join('');
+
+    grid.querySelectorAll('.vdn-invite-btn').forEach(btn => {
+        btn.addEventListener('click', () =>
+            openVdnInviteView(
+                parseInt(btn.dataset.bandId, 10),
+                parseInt(btn.dataset.profileId, 10),
+                btn.dataset.bandName
+            )
+        );
+    });
+    grid.querySelectorAll('.vdn-profile-btn').forEach(btn => {
+        btn.addEventListener('click', () =>
+            openDetailModal('band', parseInt(btn.dataset.bandId, 10))
+        );
+    });
+}
+
+function renderVdnBandCard(band) {
+    const score    = band.composite_score || 0;
+    const scoreCls = score >= 80 ? 'score-high' : score >= 55 ? 'score-med' : 'score-low';
+
+    const genreTags = (band.genres || []).map(g => {
+        const matched = (band.genre_matches || []).some(m => m.toLowerCase() === g.toLowerCase());
+        return `<span class="vdn-genre-tag${matched ? ' matched' : ''}">${escHtml(g)}</span>`;
+    }).join('');
+
+    const badges = [];
+    if (band.played_here) badges.push(`<span class="badge badge-played-here">★ Played here</span>`);
+    if (band.available_last_minute) badges.push(`<span class="badge badge-last-minute">⚡ Last-min OK</span>`);
+
+    const matchCount = (band.genre_matches || []).length;
+    const matchText  = matchCount > 0
+        ? `<span class="vdn-match-score">${matchCount} genre match${matchCount !== 1 ? 'es' : ''}</span>`
+        : '';
+
+    const metaParts = [];
+    if (matchText) metaParts.push(matchText);
+    if (band.estimated_draw > 0) metaParts.push(`<span class="vdn-meta-item">👥 ~${band.estimated_draw}</span>`);
+    if (band.shows_tracked  > 0) metaParts.push(`<span class="vdn-meta-item">🎵 ${band.shows_tracked} shows</span>`);
+
+    const safeId   = escHtml(String(band.id));
+    const safePid  = escHtml(String(band.profile_id || 0));
+    const safeName = escHtml(band.name || 'Unknown Band');
+
+    return `
+        <div class="vdn-band-card">
+            <div class="vdn-band-card-top">
+                <div class="vdn-band-name">${safeName}</div>
+                ${score > 0 ? `<span class="vdn-score ${scoreCls}">${score}</span>` : ''}
+            </div>
+            ${genreTags ? `<div class="vdn-band-genres">${genreTags}</div>` : ''}
+            ${badges.length ? `<div class="vdn-band-badges">${badges.join('')}</div>` : ''}
+            ${metaParts.length ? `<div class="vdn-band-meta">${metaParts.join('')}</div>` : ''}
+            <div class="vdn-band-actions">
+                <button class="btn btn-primary btn-sm vdn-invite-btn"
+                    data-band-id="${safeId}"
+                    data-profile-id="${safePid}"
+                    data-band-name="${safeName}">Invite</button>
+                <button class="btn btn-secondary btn-sm vdn-profile-btn"
+                    data-band-id="${safeId}">Profile</button>
+            </div>
+        </div>`;
+}
+
+// ── Invite flow ───────────────────────────────────────
+
+function openVdnInviteView(bandId, profileId, bandName) {
+    document.getElementById('vdnBrowserMain').style.display = 'none';
+    document.getElementById('vdnInviteView').style.display  = '';
+
+    document.getElementById('vdnInviteBandName').textContent  = bandName;
+    document.getElementById('vdnInviteBandId').value          = bandId;
+    document.getElementById('vdnInviteProfileId').value       = profileId;
+    document.getElementById('vdnInviteDateLabel').textContent =
+        new Date(vdnSelectedDate + 'T00:00:00')
+            .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    document.getElementById('vdnInviteMessage').value = '';
+}
+
+function submitVdnInvite(e) {
+    e.preventDefault();
+    const btn = document.getElementById('vdnInviteSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+    const cfg       = window.VDN_CONFIG || {};
+    const profileId = parseInt(document.getElementById('vdnInviteProfileId').value, 10) || null;
+    const message   = document.getElementById('vdnInviteMessage').value.trim();
+
+    const payload = {
+        venue_name:      cfg.venueName || '',
+        event_date:      vdnSelectedDate,
+        requester_type:  'venue',
+        requester_name:  cfg.venueName || '',
+        requester_email: cfg.venueEmail || '',
+        message:         message,
+        band_profile_id: profileId,
+    };
+
+    fetch('/api/bookings/interest', {
+        method:      'POST',
+        headers:     appCsrfHeaders({ 'Content-Type': 'application/json' }),
+        credentials: 'same-origin',
+        body:        JSON.stringify(payload),
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Invite sent! The band will be notified.', 'success');
+                closeVdnBrowser();
+            } else {
+                showToast(data.error || 'Failed to send invite', 'error');
+                if (btn) { btn.disabled = false; btn.textContent = 'Send Invite'; }
+            }
+        })
+        .catch(() => {
+            showToast('Network error — please try again', 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'Send Invite'; }
+        });
+}
+
+// ── Post open date ────────────────────────────────────
+
+function postVdnOpenDate() {
+    const btn = document.getElementById('vdnPostDateBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+
+    const cfg     = window.VDN_CONFIG || {};
+    const payload = {
+        event_date:          vdnSelectedDate,
+        title:               'Open Date — Band Wanted',
+        start_time:          '21:00',
+        end_time:            '23:30',
+        compensation_notes:  '',
+        constraints_notes:   '',
+        genre_tags:          cfg.venueGenres || [],
+    };
+
+    fetch('/api/bookings/opportunities', {
+        method:      'POST',
+        headers:     appCsrfHeaders({ 'Content-Type': 'application/json' }),
+        credentials: 'same-origin',
+        body:        JSON.stringify(payload),
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success || data.opportunity) {
+                showToast('Open date posted! Bands can now find and apply.', 'success');
+                closeVdnBrowser();
+                loadVenueCalendar();
+            } else {
+                showToast(data.error || 'Failed to post open date', 'error');
+            }
+        })
+        .catch(() => showToast('Network error', 'error'))
+        .finally(() => {
+            if (btn) { btn.disabled = false; btn.textContent = '+ Post as Open Date'; }
+        });
+}
+
+// Auto-init
+(function() {
+    if (document.getElementById('vdnCalContainer')) initVenueDarkNightsPage();
+})();

@@ -2697,3 +2697,332 @@ code {
     margin: 0 -1rem;
   }
 }
+
+/* =====================================================
+   VENUE DARK NIGHTS — calendar + band browser
+   ===================================================== */
+
+/* ── Controls bar ── */
+.vdn-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.vdn-nav-btns {
+  display: flex;
+  gap: .4rem;
+}
+.vdn-stats {
+  font-size: .85rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* ── Month grid layout ── */
+.vdn-months-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 700px) {
+  .vdn-months-wrap { grid-template-columns: 1fr; }
+}
+
+.vdn-month {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+.vdn-month-title {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+/* 7-column day grid */
+.vdn-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.vdn-dow {
+  font-size: .7rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-align: center;
+  padding: .25rem 0;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+/* ── Day cells ── */
+.vdn-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .82rem;
+  font-weight: 500;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  transition: background var(--transition), color var(--transition);
+  user-select: none;
+}
+.vdn-day.empty { background: none; }
+.vdn-day.past  { color: var(--text-dim); opacity: .45; }
+
+.vdn-day.today {
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.vdn-day.booked {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.vdn-day.booked:hover {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.vdn-day.dark {
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  border: 1px dashed var(--border);
+}
+.vdn-day.dark:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.vdn-day.dark:hover .vdn-day-plus { opacity: 1; }
+
+/* Booked dot */
+.vdn-day-dot {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Dark night plus icon */
+.vdn-day-plus {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: .65rem;
+  color: var(--accent);
+  opacity: .5;
+  transition: opacity var(--transition);
+  line-height: 1;
+}
+
+/* ── Legend ── */
+.vdn-legend {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  font-size: .78rem;
+  color: var(--text-muted);
+  margin-top: .5rem;
+}
+.vdn-legend-item { display: flex; align-items: center; gap: .4rem; }
+.vdn-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.vdn-legend-dot.booked { background: color-mix(in srgb, var(--accent) 25%, transparent); border: 1.5px solid var(--accent); }
+.vdn-legend-dot.dark   { background: var(--bg); border: 1px dashed var(--border); }
+.vdn-legend-dot.past   { background: var(--bg); opacity: .4; border: 1px solid var(--border); }
+
+/* ── Band Browser Modal ── */
+.vdn-browser-box {
+  width: min(900px, 96vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.vdn-browser-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.vdn-browser-date {
+  font-size: .9rem;
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: .25rem;
+}
+.vdn-browser-controls {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: .75rem;
+}
+.vdn-genre-chips {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+.vdn-browser-summary {
+  font-size: .8rem;
+  color: var(--text-dim);
+  margin-bottom: .75rem;
+}
+
+/* ── Band Cards Grid ── */
+.vdn-band-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: .85rem;
+  flex: 1;
+}
+@media (max-width: 600px) {
+  .vdn-band-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 380px) {
+  .vdn-band-grid { grid-template-columns: 1fr; }
+}
+
+.vdn-band-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.vdn-band-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px rgba(0,0,0,.3);
+}
+
+.vdn-band-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .4rem;
+}
+.vdn-band-name {
+  font-weight: 700;
+  font-size: .9rem;
+  color: var(--text);
+  line-height: 1.25;
+}
+.vdn-score {
+  font-size: .72rem;
+  font-weight: 700;
+  padding: .15rem .4rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.vdn-score.score-high { background: #1a3d2b; color: #4ade80; }
+.vdn-score.score-med  { background: #2d2a1a; color: #facc15; }
+.vdn-score.score-low  { background: var(--bg-card); color: var(--text-muted); }
+
+.vdn-band-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+}
+.vdn-genre-tag {
+  font-size: .68rem;
+  padding: .1rem .4rem;
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.vdn-genre-tag.matched {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.vdn-band-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+}
+.badge-played-here {
+  background: #1a3020;
+  color: #4ade80;
+  font-size: .68rem;
+  padding: .1rem .45rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-last-minute {
+  background: #2d1f0a;
+  color: #fb923c;
+  font-size: .68rem;
+  padding: .1rem .45rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.vdn-band-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  font-size: .72rem;
+  color: var(--text-dim);
+}
+.vdn-match-score {
+  color: var(--accent);
+  font-weight: 600;
+}
+.vdn-meta-item { white-space: nowrap; }
+
+.vdn-band-actions {
+  margin-top: auto;
+  padding-top: .4rem;
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+
+.vdn-load-more-wrap {
+  text-align: center;
+  padding: 1rem 0 .5rem;
+}
+.vdn-back-btn { margin-bottom: .5rem; }
+
+/* ── Invite form ── */
+.vdn-invite-subtitle {
+  font-size: .9rem;
+  color: var(--text-muted);
+  margin: .35rem 0 1.25rem;
+}
+.vdn-invite-form textarea {
+  width: 100%;
+  resize: vertical;
+}

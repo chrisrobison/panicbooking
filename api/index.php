@@ -50,6 +50,7 @@ require_once __DIR__ . '/handlers/admin.php';
 require_once __DIR__ . '/handlers/claims.php';
 require_once __DIR__ . '/handlers/ticketing.php';
 require_once __DIR__ . '/handlers/payments.php';
+require_once __DIR__ . '/handlers/venue.php';
 
 set_exception_handler(static function (Throwable $e): void {
     panicLog('api_unhandled_exception', [
@@ -88,8 +89,18 @@ $id       = is_numeric($sub) ? (int)$sub : null;
 
 // ===================== ROUTING =====================
 
+// --- Venue-specific ---
+if ($resource === 'venue') {
+    if ($sub === 'calendar' && $method === 'GET') {
+        handleVenueCalendar($pdo);
+    } elseif ($sub === 'recommended-bands' && $method === 'GET') {
+        handleVenueRecommendedBands($pdo);
+    } else {
+        errorResponse('Not found', 404);
+    }
+
 // --- Dark Nights ---
-if ($resource === 'dark-nights' && $method === 'GET') {
+} elseif ($resource === 'dark-nights' && $method === 'GET') {
     handleDarkNights($pdo);
 
 // --- Bookings ---

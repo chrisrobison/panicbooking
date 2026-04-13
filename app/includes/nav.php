@@ -136,6 +136,16 @@ if ($user) {
                     'enabled' => $isVenue || $isAdminUser,
                     'hint' => 'Venue workflow',
                 ],
+                [
+                    'id' => 'venues-dark-nights',
+                    'group' => 'venues',
+                    'icon' => '🌑',
+                    'label' => 'My Dark Nights',
+                    'href' => '/app/venue-dark-nights.php',
+                    'activeKey' => 'venue-dark-nights',
+                    'enabled' => $isVenue || $isAdminUser,
+                    'hint' => 'Venue workflow',
+                ],
             ],
         ],
         [
