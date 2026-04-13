@@ -89,26 +89,16 @@ $currentPage = 'admin';
 
         <!-- ===== VENUES TAB ===== -->
         <div id="tab-venues" class="tab-panel">
-            <div class="add-form-card">
-                <h3>Add New Venue</h3>
-                <div class="add-form-row">
-                    <div class="form-group">
-                        <label>Venue Name</label>
-                        <input type="text" id="newVenueName" placeholder="e.g. The Fillmore">
-                    </div>
-                    <div class="form-group">
-                        <label>Login Email</label>
-                        <input type="email" id="newVenueEmail" placeholder="venue@example.com">
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" id="newVenuePassword" placeholder="Set a strong password">
-                    </div>
-                    <div class="form-group" style="flex:0 0 auto">
-                        <label>&nbsp;</label>
-                        <button class="btn btn-primary btn-sm" id="addVenueBtn">Add Venue</button>
-                    </div>
+            <div class="add-form-card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                <div>
+                    <h3 style="margin:0 0 .25rem;">Add New Venue</h3>
+                    <p style="margin:0;font-size:.85rem;color:var(--text-muted);">
+                        Create a venue account with a complete profile — name, address, genres, equipment, and more.
+                    </p>
                 </div>
+                <a href="/app/admin/venue-new.php" class="btn btn-primary btn-sm" style="white-space:nowrap;">
+                    + New Venue
+                </a>
             </div>
 
             <div class="admin-section">
@@ -379,20 +369,6 @@ $currentPage = 'admin';
                 })
                 .catch(() => showToast('Network error', 'error'));
         };
-
-        // ── Add venue ─────────────────────────────────────────────────────
-        document.getElementById('addVenueBtn').addEventListener('click', () => {
-            const name  = document.getElementById('newVenueName').value.trim();
-            const email = document.getElementById('newVenueEmail').value.trim();
-            const pass  = document.getElementById('newVenuePassword').value.trim();
-            if (!email || !pass) { showToast('Email and password are required', 'error'); return; }
-            addUser('venue', name, email, pass, () => {
-                document.getElementById('newVenueName').value  = '';
-                document.getElementById('newVenueEmail').value = '';
-                document.getElementById('newVenuePassword').value = '';
-                loadVenues();
-            });
-        });
 
         // ── Add band ──────────────────────────────────────────────────────
         document.getElementById('addBandBtn').addEventListener('click', () => {

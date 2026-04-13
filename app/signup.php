@@ -13,7 +13,7 @@ function normalizeNextPath(?string $next): string {
 
 $nextPath = normalizeNextPath($_GET['next'] ?? $_POST['next'] ?? '/app/profile.php?new=1');
 $defaultType = $_GET['type'] ?? '';
-if (!in_array($defaultType, ['band', 'venue'], true)) {
+if (!in_array($defaultType, ['band', 'venue', 'agent'], true)) {
     $defaultType = '';
 }
 $selectedType = $_POST['type'] ?? $defaultType;
@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Password must be at least 8 characters.';
     } elseif ($password !== $confirm) {
         $error = 'Passwords do not match.';
-    } elseif (!in_array($type, ['band', 'venue'])) {
+    } elseif (!in_array($type, ['band', 'venue', 'agent'])) {
         $error = 'Please select an account type.';
     } else {
         // Check if email already exists
@@ -56,22 +56,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userId = (int)$pdo->lastInsertId();
 
             // Create empty profile
-            $defaultData = $type === 'band' ? json_encode([
-                'name' => '', 'genres' => [], 'members' => [], 'description' => '',
-                'contact_email' => $email, 'contact_phone' => '', 'website' => '',
-                'facebook' => '', 'instagram' => '', 'spotify' => '', 'youtube' => '',
-                'location' => 'San Francisco, CA', 'experience' => '',
-                'set_length_min' => 45, 'set_length_max' => 90,
-                'has_own_equipment' => false, 'available_last_minute' => true, 'notes' => ''
-            ]) : json_encode([
-                'name' => '', 'address' => '', 'neighborhood' => '', 'capacity' => 0,
-                'description' => '', 'contact_email' => $email, 'contact_phone' => '',
-                'website' => '', 'facebook' => '', 'instagram' => '',
-                'genres_welcomed' => [], 'has_pa' => false, 'has_drums' => false,
-                'has_backline' => false, 'stage_size' => '', 'cover_charge' => false,
-                'bar_service' => false, 'open_to_last_minute' => true,
-                'booking_lead_time_days' => 0, 'notes' => ''
-            ]);
+            $defaultData = match ($type) {
+                'band' => json_encode([
+                    'name' => '', 'genres' => [], 'members' => [], 'description' => '',
+                    'contact_email' => $email, 'contact_phone' => '', 'website' => '',
+                    'facebook' => '', 'instagram' => '', 'spotify' => '', 'youtube' => '',
+                    'location' => 'San Francisco, CA', 'experience' => '',
+                    'set_length_min' => 45, 'set_length_max' => 90,
+                    'has_own_equipment' => false, 'available_last_minute' => true, 'notes' => ''
+                ]),
+                'venue' => json_encode([
+                    'name' => '', 'address' => '', 'neighborhood' => '', 'capacity' => 0,
+                    'description' => '', 'contact_email' => $email, 'contact_phone' => '',
+                    'website' => '', 'facebook' => '', 'instagram' => '',
+                    'genres_welcomed' => [], 'has_pa' => false, 'has_drums' => false,
+                    'has_backline' => false, 'stage_size' => '', 'cover_charge' => false,
+                    'bar_service' => false, 'open_to_last_minute' => true,
+                    'booking_lead_time_days' => 0, 'notes' => ''
+                ]),
+                'agent' => json_encode([
+                    'name' => '', 'agency_name' => '', 'bio' => '',
+                    'contact_email' => $email, 'contact_phone' => '',
+                    'website' => '', 'instagram' => '',
+                    'location' => 'San Francisco, CA',
+                    'represented_genres' => [], 'notes' => '',
+                ]),
+                default => json_encode([]),
+            };
 
             $stmt = $pdo->prepare("INSERT INTO profiles (user_id, type, data) VALUES (?, ?, ?)");
             $stmt->execute([$userId, $type, $defaultData]);
@@ -143,6 +154,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span class="type-icon">🏛</span>
                             <span class="type-label">Venue</span>
                             <span class="type-desc">I'm booking artists</span>
+                        </label>
+                        <label class="type-option <?= ($selectedType === 'agent') ? 'selected' : '' ?>">
+                            <input type="radio" name="type" value="agent"
+                                   <?= ($selectedType === 'agent') ? 'checked' : '' ?>>
+                            <span class="type-icon">🤝</span>
+                            <span class="type-label">Booking Agent</span>
+                            <span class="type-desc">I represent artists</span>
                         </label>
                     </div>
                 </div>

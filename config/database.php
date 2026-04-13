@@ -11,15 +11,15 @@ if (!panicDebugEnabled()) {
 /**
  * Central DB configuration + connection helper.
  *
- * Environment variables:
- * - PB_DB_DRIVER=sqlite|mysql
- * - PB_DB_PATH=/abs/path/to/db.sqlite (sqlite)
- * - PB_DB_HOST=127.0.0.1
- * - PB_DB_PORT=3306
- * - PB_DB_NAME=panicbooking
- * - PB_DB_USER=root
- * - PB_DB_PASS=secret
- * - PB_DB_CHARSET=utf8mb4
+ * Environment variables (set in .env / .env.local):
+ * - PB_DB_DRIVER=mysql|sqlite          (default: sqlite)
+ * - PB_DB_HOST=127.0.0.1              (mysql only)
+ * - PB_DB_PORT=3306                   (mysql only)
+ * - PB_DB_NAME=your_database          (mysql only)
+ * - PB_DB_USER=your_user              (mysql only)
+ * - PB_DB_PASS=your_password          (mysql only)
+ * - PB_DB_CHARSET=utf8mb4             (mysql only)
+ * - PB_DB_PATH=/abs/path/to/db.sqlite (sqlite only, default: data/booking.db)
  */
 
 function panicDbConfig(): array {

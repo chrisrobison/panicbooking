@@ -64,18 +64,96 @@ function ticketingEnsureUniqueEventSlug(PDO $pdo, string $baseSlug, ?int $exclud
     }
 }
 
-function ticketingUserCanManageEvents(array $user): bool {
-    return !empty($user['is_admin']) || (($user['type'] ?? '') === 'venue');
+/**
+ * Can the user create/list events at all?
+ * Venues and admins always yes. Promoters yes if they have ≥1 active delegation.
+ * Bands and agents yes — they create 'listing'-type drafts.
+ */
+function ticketingUserCanManageEvents(array $user, ?PDO $pdo = null): bool {
+    $type = $user['type'] ?? '';
+    if (!empty($user['is_admin']) || $type === 'venue') {
+        return true;
+    }
+    if ($type === 'promoter' && $pdo !== null) {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM venue_promoter_delegations
+             WHERE promoter_user_id = ? AND status = 'active' LIMIT 1"
+        );
+        $stmt->execute([(int)$user['id']]);
+        return (bool)$stmt->fetchColumn();
+    }
+    // Bands and booking agents can create show-listing drafts.
+    return in_array($type, ['band', 'agent'], true);
 }
 
-function ticketingAssertManager(array $user): void {
-    if (!ticketingUserCanManageEvents($user)) {
+function ticketingAssertManager(array $user, ?PDO $pdo = null): void {
+    if (!ticketingUserCanManageEvents($user, $pdo)) {
         throw new RuntimeException('Forbidden');
     }
 }
 
+/**
+ * Can the user edit/manage this specific event?
+ * - Admin: always.
+ * - Venue: owns the event's venue_id.
+ * - Promoter: promoted this event (promoted_by_user_id).
+ * - Band / Agent: created the event (show listing they submitted).
+ */
 function ticketingUserCanManageEvent(array $user, array $event): bool {
-    return !empty($user['is_admin']) || (int)$event['venue_id'] === (int)$user['id'];
+    if (!empty($user['is_admin'])) {
+        return true;
+    }
+    $type = $user['type'] ?? '';
+    $uid  = (int)$user['id'];
+    if ($type === 'venue')    return (int)$event['venue_id']             === $uid;
+    if ($type === 'promoter') return (int)($event['promoted_by_user_id'] ?? 0) === $uid;
+    // band / agent: must be the original creator
+    return (int)($event['created_by_user_id'] ?? 0) === $uid;
+}
+
+/**
+ * Returns venues a user is allowed to attach an event to.
+ * Venue users → their own venue.
+ * Promoters   → their delegated venues.
+ * Bands/Agents → all venues (for show-listing requests).
+ * Admins      → all venues.
+ */
+function ticketingGetVenuesForUser(PDO $pdo, array $user): array {
+    $type = $user['type'] ?? '';
+
+    if ($type === 'venue') {
+        $stmt = $pdo->prepare(
+            "SELECT u.id, u.email, p.data
+             FROM users u
+             LEFT JOIN profiles p ON p.user_id = u.id
+             WHERE u.id = ? LIMIT 1"
+        );
+        $stmt->execute([(int)$user['id']]);
+        return $stmt->fetchAll();
+    }
+
+    if ($type === 'promoter') {
+        $stmt = $pdo->prepare(
+            "SELECT u.id, u.email, p.data
+             FROM venue_promoter_delegations vpd
+             JOIN  users    u ON u.id = vpd.venue_user_id
+             LEFT JOIN profiles p ON p.user_id = u.id
+             WHERE vpd.promoter_user_id = ? AND vpd.status = 'active'
+             ORDER BY u.email ASC"
+        );
+        $stmt->execute([(int)$user['id']]);
+        return $stmt->fetchAll();
+    }
+
+    // admin, band, agent: full venue list
+    $stmt = $pdo->query(
+        "SELECT u.id, u.email, p.data
+         FROM users u
+         LEFT JOIN profiles p ON p.user_id = u.id
+         WHERE u.type = 'venue'
+         ORDER BY u.email ASC"
+    );
+    return $stmt->fetchAll();
 }
 
 function ticketingEnsureVenueExists(PDO $pdo, int $venueId): bool {
@@ -142,20 +220,58 @@ function ticketingListManageableEvents(PDO $pdo, array $user, int $limit = 200):
 }
 
 function ticketingCreateEvent(PDO $pdo, array $actor, array $input): int {
-    ticketingAssertManager($actor);
+    ticketingAssertManager($actor, $pdo);
 
     $title = trim((string)($input['title'] ?? ''));
     if ($title === '') {
         throw new InvalidArgumentException('Title is required');
     }
 
-    $venueId = isset($input['venue_id']) ? (int)$input['venue_id'] : (int)$actor['id'];
-    if (empty($actor['is_admin'])) {
+    $actorType = $actor['type'] ?? '';
+
+    // Resolve venue_id based on actor role.
+    if (!empty($actor['is_admin'])) {
+        $venueId = (int)($input['venue_id'] ?? 0);
+    } elseif ($actorType === 'venue') {
         $venueId = (int)$actor['id'];
+    } elseif ($actorType === 'promoter') {
+        $venueId = (int)($input['venue_id'] ?? 0);
+        $chk = $pdo->prepare(
+            "SELECT 1 FROM venue_promoter_delegations
+             WHERE promoter_user_id = ? AND venue_user_id = ? AND status = 'active' LIMIT 1"
+        );
+        $chk->execute([(int)$actor['id'], $venueId]);
+        if (!$chk->fetchColumn()) {
+            throw new RuntimeException('You are not authorized to create events for this venue');
+        }
+    } else {
+        // band / agent: show listing at any venue
+        $venueId = (int)($input['venue_id'] ?? 0);
     }
 
     if ($venueId <= 0 || !ticketingEnsureVenueExists($pdo, $venueId)) {
-        throw new InvalidArgumentException('Invalid venue');
+        throw new InvalidArgumentException('A valid venue is required');
+    }
+
+    // Bands and agents can only save listing drafts — not publish ticketed events.
+    $isListingOnly = in_array($actorType, ['band', 'agent'], true);
+
+    $status = (string)($input['status'] ?? 'draft');
+    if (!in_array($status, ['draft', 'published', 'canceled'], true)) {
+        $status = 'draft';
+    }
+    if ($isListingOnly) {
+        $status = 'draft';
+    }
+
+    $eventType = $isListingOnly ? 'listing' : (string)($input['event_type'] ?? 'ticketed');
+    if (!in_array($eventType, ['ticketed', 'listing'], true)) {
+        $eventType = 'ticketed';
+    }
+
+    $visibility = (string)($input['visibility'] ?? 'public');
+    if (!in_array($visibility, ['public', 'private', 'unlisted'], true)) {
+        $visibility = 'public';
     }
 
     $startAt = ticketingNormalizeDateTime($input['start_at'] ?? null);
@@ -168,15 +284,8 @@ function ticketingCreateEvent(PDO $pdo, array $actor, array $input): int {
         throw new InvalidArgumentException('end_at must be after start_at');
     }
 
-    $status = (string)($input['status'] ?? 'draft');
-    if (!in_array($status, ['draft', 'published', 'canceled'], true)) {
-        $status = 'draft';
-    }
-
-    $visibility = (string)($input['visibility'] ?? 'public');
-    if (!in_array($visibility, ['public', 'private', 'unlisted'], true)) {
-        $visibility = 'public';
-    }
+    $doorsAt = ticketingNormalizeDateTime($input['doors_at'] ?? null);
+    $promotedBy = ($actorType === 'promoter') ? (int)$actor['id'] : null;
 
     $capacity = isset($input['capacity']) && $input['capacity'] !== '' ? (int)$input['capacity'] : null;
     if ($capacity !== null && $capacity < 1) {
@@ -186,19 +295,35 @@ function ticketingCreateEvent(PDO $pdo, array $actor, array $input): int {
     $slugBase = ticketingSlugify((string)($input['slug'] ?? $title));
     $slug = ticketingEnsureUniqueEventSlug($pdo, $slugBase);
 
-    $stmt = $pdo->prepare("\n        INSERT INTO events\n          (venue_id, created_by_user_id, title, slug, description, start_at, end_at, status, capacity, visibility, created_at, updated_at)\n        VALUES\n          (:venue_id, :created_by_user_id, :title, :slug, :description, :start_at, :end_at, :status, :capacity, :visibility, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\n    ");
+    $stmt = $pdo->prepare("
+        INSERT INTO events
+          (venue_id, created_by_user_id, promoted_by_user_id,
+           title, slug, description,
+           doors_at, start_at, end_at,
+           event_type, status, capacity, visibility,
+           created_at, updated_at)
+        VALUES
+          (:venue_id, :created_by_user_id, :promoted_by_user_id,
+           :title, :slug, :description,
+           :doors_at, :start_at, :end_at,
+           :event_type, :status, :capacity, :visibility,
+           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ");
 
     $stmt->execute([
-        ':venue_id' => $venueId,
-        ':created_by_user_id' => (int)$actor['id'],
-        ':title' => $title,
-        ':slug' => $slug,
-        ':description' => trim((string)($input['description'] ?? '')),
-        ':start_at' => $startAt,
-        ':end_at' => $endAt,
-        ':status' => $status,
-        ':capacity' => $capacity,
-        ':visibility' => $visibility,
+        ':venue_id'            => $venueId,
+        ':created_by_user_id'  => (int)$actor['id'],
+        ':promoted_by_user_id' => $promotedBy,
+        ':title'               => $title,
+        ':slug'                => $slug,
+        ':description'         => trim((string)($input['description'] ?? '')),
+        ':doors_at'            => $doorsAt,
+        ':start_at'            => $startAt,
+        ':end_at'              => $endAt,
+        ':event_type'          => $eventType,
+        ':status'              => $status,
+        ':capacity'            => $capacity,
+        ':visibility'          => $visibility,
     ]);
 
     return (int)$pdo->lastInsertId();
@@ -245,32 +370,51 @@ function ticketingUpdateEvent(PDO $pdo, array $actor, int $eventId, array $input
         throw new InvalidArgumentException('capacity must be positive');
     }
 
+    // Venue_id: only admin and the owning venue can reassign.
     $venueId = array_key_exists('venue_id', $input) ? (int)$input['venue_id'] : (int)$event['venue_id'];
-    if (empty($actor['is_admin'])) {
-        $venueId = (int)$event['venue_id'];
+    if (empty($actor['is_admin']) && ($actor['type'] ?? '') !== 'venue') {
+        $venueId = (int)$event['venue_id']; // non-venue creators can't change the venue
     }
     if ($venueId <= 0 || !ticketingEnsureVenueExists($pdo, $venueId)) {
         throw new InvalidArgumentException('Invalid venue');
     }
+
+    $doorsAt  = ticketingNormalizeDateTime($input['doors_at']  ?? $event['doors_at']  ?? null);
 
     $slug = $event['slug'];
     if (isset($input['slug']) && trim((string)$input['slug']) !== '') {
         $slug = ticketingEnsureUniqueEventSlug($pdo, ticketingSlugify((string)$input['slug']), $eventId);
     }
 
-    $stmt = $pdo->prepare("\n        UPDATE events\n        SET\n          venue_id = :venue_id,\n          title = :title,\n          slug = :slug,\n          description = :description,\n          start_at = :start_at,\n          end_at = :end_at,\n          status = :status,\n          capacity = :capacity,\n          visibility = :visibility,\n          updated_at = CURRENT_TIMESTAMP\n        WHERE id = :id\n    ");
+    $stmt = $pdo->prepare("
+        UPDATE events
+        SET
+          venue_id    = :venue_id,
+          title       = :title,
+          slug        = :slug,
+          description = :description,
+          doors_at    = :doors_at,
+          start_at    = :start_at,
+          end_at      = :end_at,
+          status      = :status,
+          capacity    = :capacity,
+          visibility  = :visibility,
+          updated_at  = CURRENT_TIMESTAMP
+        WHERE id = :id
+    ");
 
     $stmt->execute([
-        ':venue_id' => $venueId,
-        ':title' => $title,
-        ':slug' => $slug,
+        ':venue_id'    => $venueId,
+        ':title'       => $title,
+        ':slug'        => $slug,
         ':description' => trim((string)($input['description'] ?? $event['description'])),
-        ':start_at' => $startAt,
-        ':end_at' => $endAt,
-        ':status' => $status,
-        ':capacity' => $capacity,
-        ':visibility' => $visibility,
-        ':id' => $eventId,
+        ':doors_at'    => $doorsAt,
+        ':start_at'    => $startAt,
+        ':end_at'      => $endAt,
+        ':status'      => $status,
+        ':capacity'    => $capacity,
+        ':visibility'  => $visibility,
+        ':id'          => $eventId,
     ]);
 
     return ticketingGetEventById($pdo, $eventId) ?: $event;
@@ -1021,4 +1165,125 @@ function ticketingVerifyReceiptToken(int $orderId, string $buyerEmail, string $t
 
 function ticketingFormatCents(int $cents): string {
     return '$' . number_format($cents / 100, 2);
+}
+
+// -----------------------------------------------------------------------
+// Lineup management
+// -----------------------------------------------------------------------
+
+function ticketingGetEventLineup(PDO $pdo, int $eventId): array {
+    $stmt = $pdo->prepare("
+        SELECT el.*,
+               p.data  AS profile_json,
+               p.type  AS profile_type
+        FROM   event_lineup el
+        LEFT JOIN profiles p ON p.id = el.profile_id
+        WHERE  el.event_id = :event_id
+        ORDER  BY el.sort_order ASC, el.id ASC
+    ");
+    $stmt->execute([':event_id' => $eventId]);
+    $rows = $stmt->fetchAll();
+
+    foreach ($rows as &$row) {
+        $row['id']         = (int)$row['id'];
+        $row['event_id']   = (int)$row['event_id'];
+        $row['profile_id'] = $row['profile_id'] !== null ? (int)$row['profile_id'] : null;
+        $row['sort_order'] = (int)$row['sort_order'];
+        $profileData = json_decode($row['profile_json'] ?? '{}', true) ?: [];
+        $row['act_name']   = trim((string)($profileData['name'] ?? $row['external_name'] ?? ''));
+        unset($row['profile_json']);
+    }
+    unset($row);
+
+    return $rows;
+}
+
+/**
+ * Replace the entire lineup for an event.
+ * $lineup is an array of rows, each with:
+ *   profile_id    (int|null)
+ *   external_name (string, used when profile_id is null)
+ *   billing       (headliner|direct_support|support|opener|special_guest)
+ *   set_start     (HH:MM or null)
+ *   set_end       (HH:MM or null)
+ *   sort_order    (int)
+ */
+function ticketingSyncEventLineup(PDO $pdo, array $actor, int $eventId, array $lineup): void {
+    $event = ticketingGetEventById($pdo, $eventId);
+    if (!$event) {
+        throw new RuntimeException('Event not found');
+    }
+    if (!ticketingUserCanManageEvent($actor, $event)) {
+        throw new RuntimeException('Forbidden');
+    }
+
+    $validBillings = ['headliner', 'direct_support', 'support', 'opener', 'special_guest'];
+
+    $pdo->prepare("DELETE FROM event_lineup WHERE event_id = ?")->execute([$eventId]);
+
+    $insert = $pdo->prepare("
+        INSERT INTO event_lineup
+          (event_id, profile_id, external_name, billing, set_start, set_end, sort_order)
+        VALUES
+          (:event_id, :profile_id, :external_name, :billing, :set_start, :set_end, :sort_order)
+    ");
+
+    foreach ($lineup as $i => $act) {
+        $profileId   = isset($act['profile_id']) && $act['profile_id'] !== '' ? (int)$act['profile_id'] : null;
+        $extName     = trim((string)($act['external_name'] ?? ''));
+        $billing     = in_array($act['billing'] ?? '', $validBillings, true) ? $act['billing'] : 'support';
+        $setStart    = ticketingNormalizeTime($act['set_start'] ?? null);
+        $setEnd      = ticketingNormalizeTime($act['set_end']   ?? null);
+        $sortOrder   = (int)($act['sort_order'] ?? $i);
+
+        if ($profileId === null && $extName === '') {
+            continue; // skip empty rows
+        }
+
+        $insert->execute([
+            ':event_id'     => $eventId,
+            ':profile_id'   => $profileId,
+            ':external_name' => $extName !== '' ? $extName : null,
+            ':billing'      => $billing,
+            ':set_start'    => $setStart,
+            ':set_end'      => $setEnd,
+            ':sort_order'   => $sortOrder,
+        ]);
+    }
+}
+
+function ticketingNormalizeTime(?string $value): ?string {
+    if ($value === null || trim($value) === '') {
+        return null;
+    }
+    $value = trim($value);
+    // Accept HH:MM or HH:MM:SS; return HH:MM:SS
+    if (preg_match('/^\d{1,2}:\d{2}(:\d{2})?$/', $value)) {
+        return strlen($value) === 5 ? $value . ':00' : $value;
+    }
+    return null;
+}
+
+/**
+ * Create ticket types in bulk from an array of input rows (used by event-edit form).
+ * Each row: name, price (dollars string), quantity, max_per_order, description
+ */
+function ticketingCreateTicketTypes(PDO $pdo, array $actor, int $eventId, array $ticketRows): void {
+    foreach ($ticketRows as $row) {
+        $name = trim((string)($row['name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        $priceCents = (int)round(((float)($row['price'] ?? 0)) * 100);
+        ticketingCreateTicketType($pdo, $actor, $eventId, [
+            'name'               => $name,
+            'description'        => trim((string)($row['description'] ?? '')),
+            'price_cents'        => $priceCents,
+            'quantity_available' => max(0, (int)($row['quantity'] ?? 0)),
+            'max_per_order'      => max(1, min(50, (int)($row['max_per_order'] ?? 10))),
+            'sales_start'        => $row['sales_start'] ?? null,
+            'sales_end'          => $row['sales_end']   ?? null,
+            'is_active'          => 1,
+        ]);
+    }
 }

@@ -1158,6 +1158,148 @@ button { cursor: pointer; background: none; border: none; font: inherit; }
 }
 .dn-preview-footer a:hover { color: var(--clr-white); }
 
+/* ── Join Platform Section ───────────────────────────────── */
+.join-platform {
+  padding: 7rem 0 6rem;
+  background: var(--clr-dark);
+  position: relative;
+  overflow: hidden;
+}
+
+.join-platform::before {
+  content: 'JOIN';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-size: clamp(12rem, 25vw, 22rem);
+  color: rgba(255,255,255,0.018);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.join-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.join-card {
+  position: relative;
+  background: var(--clr-dark2);
+  border: 1px solid var(--clr-grey);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.75rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: border-color var(--transition), transform var(--transition);
+}
+.join-card:hover {
+  border-color: var(--clr-mid);
+  transform: translateY(-4px);
+}
+
+.join-card-featured {
+  border-color: var(--clr-red);
+  background: var(--clr-dark3);
+  box-shadow: 0 0 40px rgba(232, 21, 42, 0.12);
+}
+.join-card-featured:hover {
+  border-color: var(--clr-red);
+  box-shadow: 0 8px 48px rgba(232, 21, 42, 0.2);
+}
+
+.join-card-badge {
+  position: absolute;
+  top: -1px;
+  right: 1.5rem;
+  background: var(--clr-red);
+  color: var(--clr-white);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.3em 0.75em;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.join-card-icon {
+  font-size: 2.25rem;
+  line-height: 1;
+}
+
+.join-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--clr-white);
+}
+
+.join-card p {
+  color: var(--clr-off);
+  font-size: 0.92rem;
+  line-height: 1.7;
+  flex: 1;
+}
+
+.join-perks {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+}
+.join-perks li {
+  font-size: 0.85rem;
+  color: var(--clr-off);
+  padding-left: 1.25rem;
+  position: relative;
+  line-height: 1.5;
+}
+.join-perks li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--clr-red);
+  font-size: 0.7rem;
+  top: 0.15em;
+}
+
+.join-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.join-login {
+  text-align: center;
+  margin-top: 2.5rem;
+  color: var(--clr-mid);
+  font-size: 0.9rem;
+}
+.join-login a {
+  color: var(--clr-red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color var(--transition);
+}
+.join-login a:hover { color: var(--clr-white); }
+
+@media (max-width: 900px) {
+  .join-grid {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+    margin-inline: auto;
+  }
+}
+
 /* ── Reduced Motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

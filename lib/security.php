@@ -1,5 +1,11 @@
 <?php
 
+// Env loading is handled by config/env.php (panicLoadEnvFiles).
+// We require it here so security.php can be included standalone by scripts
+// that don't go through config/database.php first.
+require_once __DIR__ . '/../config/env.php';
+panicLoadEnvFiles();
+
 function panicEnv(string $name, ?string $default = null): ?string {
     $value = getenv($name);
     if ($value === false) {

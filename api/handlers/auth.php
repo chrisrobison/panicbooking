@@ -54,7 +54,7 @@ function handleAuthSignup(PDO $pdo): void {
     if (strlen($password) < 8) {
         errorResponse('Password must be at least 8 characters');
     }
-    $type = apiRequireEnum($type, ['band', 'venue'], 'type');
+    $type = apiRequireEnum($type, ['band', 'venue', 'promoter', 'agent'], 'type');
 
     // Check duplicate
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
@@ -68,23 +68,43 @@ function handleAuthSignup(PDO $pdo): void {
     $stmt->execute([$email, $hash, $type]);
     $userId = (int)$pdo->lastInsertId();
 
-    // Empty profile
-    $defaultData = $type === 'band' ? json_encode([
-        'name' => '', 'genres' => [], 'members' => [], 'description' => '',
-        'contact_email' => $email, 'contact_phone' => '', 'website' => '',
-        'facebook' => '', 'instagram' => '', 'spotify' => '', 'youtube' => '',
-        'location' => 'San Francisco, CA', 'experience' => '',
-        'set_length_min' => 45, 'set_length_max' => 90,
-        'has_own_equipment' => false, 'available_last_minute' => true, 'notes' => ''
-    ]) : json_encode([
-        'name' => '', 'address' => '', 'neighborhood' => '', 'capacity' => 0,
-        'description' => '', 'contact_email' => $email, 'contact_phone' => '',
-        'website' => '', 'facebook' => '', 'instagram' => '',
-        'genres_welcomed' => [], 'has_pa' => false, 'has_drums' => false,
-        'has_backline' => false, 'stage_size' => '', 'cover_charge' => false,
-        'bar_service' => false, 'open_to_last_minute' => true,
-        'booking_lead_time_days' => 0, 'notes' => ''
-    ]);
+    // Default profile JSON per role
+    $defaultData = match ($type) {
+        'band' => json_encode([
+            'name' => '', 'genres' => [], 'members' => [], 'description' => '',
+            'contact_email' => $email, 'contact_phone' => '', 'website' => '',
+            'facebook' => '', 'instagram' => '', 'spotify' => '', 'youtube' => '',
+            'location' => 'San Francisco, CA', 'experience' => '',
+            'set_length_min' => 45, 'set_length_max' => 90,
+            'has_own_equipment' => false, 'available_last_minute' => true, 'notes' => '',
+            'seeking_gigs' => true, 'available_days' => [],
+            'next_available' => '', 'gig_radius' => '', 'booking_contact' => '',
+        ]),
+        'venue' => json_encode([
+            'name' => '', 'address' => '', 'neighborhood' => '', 'capacity' => 0,
+            'description' => '', 'contact_email' => $email, 'contact_phone' => '',
+            'website' => '', 'facebook' => '', 'instagram' => '',
+            'genres_welcomed' => [], 'has_pa' => false, 'has_drums' => false,
+            'has_backline' => false, 'stage_size' => '', 'cover_charge' => false,
+            'bar_service' => false, 'open_to_last_minute' => true,
+            'booking_lead_time_days' => 0, 'notes' => '',
+        ]),
+        'promoter' => json_encode([
+            'name' => '', 'company' => '', 'bio' => '',
+            'contact_email' => $email, 'contact_phone' => '',
+            'website' => '', 'instagram' => '', 'facebook' => '',
+            'location' => 'San Francisco, CA',
+            'genres' => [], 'years_active' => 0, 'notes' => '',
+        ]),
+        'agent' => json_encode([
+            'name' => '', 'agency_name' => '', 'bio' => '',
+            'contact_email' => $email, 'contact_phone' => '',
+            'website' => '', 'instagram' => '',
+            'location' => 'San Francisco, CA',
+            'represented_genres' => [], 'notes' => '',
+        ]),
+        default => json_encode([]),
+    };
 
     $stmt = $pdo->prepare("INSERT INTO profiles (user_id, type, data) VALUES (?, ?, ?)");
     $stmt->execute([$userId, $type, $defaultData]);
