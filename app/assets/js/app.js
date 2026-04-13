@@ -90,33 +90,38 @@ function showToast(message, type = 'info') {
     function setExpanded(group, expanded) {
         group.classList.toggle('expanded', expanded);
         const toggle = group.querySelector('.nav-group-toggle');
-        if (toggle) {
-            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        }
+        if (toggle) toggle.setAttribute('aria-expanded', String(expanded));
     }
 
+    // Initialise per-group state:
+    //   mobile  — only the primary group open (matches server-rendered class)
+    //   desktop — all groups open by default
     groups.forEach((group) => {
-        group.dataset.mobileExpanded = group.classList.contains('expanded') ? '1' : '0';
+        group.dataset.mobileExpanded  = group.classList.contains('primary') ? '1' : '0';
+        group.dataset.desktopExpanded = '1';
     });
 
     function applyViewportState() {
+        const isMobile = mobileQuery.matches;
         groups.forEach((group) => {
-            if (mobileQuery.matches) {
-                setExpanded(group, group.dataset.mobileExpanded === '1');
-            } else {
-                setExpanded(group, true);
-            }
+            const expanded = isMobile
+                ? group.dataset.mobileExpanded  === '1'
+                : group.dataset.desktopExpanded === '1';
+            setExpanded(group, expanded);
         });
     }
 
+    // Click handler works on all viewports
     groups.forEach((group) => {
         const toggle = group.querySelector('.nav-group-toggle');
         if (!toggle) return;
-
         toggle.addEventListener('click', () => {
-            if (!mobileQuery.matches) return;
-            const nextExpanded = group.dataset.mobileExpanded !== '1';
-            group.dataset.mobileExpanded = nextExpanded ? '1' : '0';
+            const nextExpanded = !group.classList.contains('expanded');
+            if (mobileQuery.matches) {
+                group.dataset.mobileExpanded  = nextExpanded ? '1' : '0';
+            } else {
+                group.dataset.desktopExpanded = nextExpanded ? '1' : '0';
+            }
             setExpanded(group, nextExpanded);
         });
     });

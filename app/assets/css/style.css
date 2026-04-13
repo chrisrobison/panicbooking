@@ -351,6 +351,13 @@ code {
 
 .nav-group-items {
   list-style: none;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.22s ease;
+}
+
+.nav-group.expanded .nav-group-items {
+  max-height: 600px;
 }
 
 .nav-link {
@@ -1585,14 +1592,6 @@ code {
   .sidebar.open { transform: translateX(0); }
 
   .sidebar-overlay.show { display: block; }
-
-  .nav-group .nav-group-items {
-    display: none;
-  }
-
-  .nav-group.expanded .nav-group-items {
-    display: block;
-  }
 
   .main-content {
     margin-left: 0;
