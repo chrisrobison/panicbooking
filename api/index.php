@@ -42,6 +42,7 @@ require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/handlers/auth.php';
 require_once __DIR__ . '/handlers/bands.php';
 require_once __DIR__ . '/handlers/venues.php';
+require_once __DIR__ . '/handlers/labels.php';
 require_once __DIR__ . '/handlers/events.php';
 require_once __DIR__ . '/handlers/users.php';
 require_once __DIR__ . '/handlers/bookings.php';
@@ -208,6 +209,26 @@ if ($resource === 'venue') {
             handleVenuesUpdate($pdo, $id);
         } elseif ($method === 'DELETE') {
             handleVenuesDelete($pdo, $id);
+        } else {
+            errorResponse('Method not allowed', 405);
+        }
+    }
+
+// --- Recording Labels ---
+} elseif ($resource === 'labels') {
+    if ($id === null) {
+        if ($method === 'GET') {
+            handleLabelsList($pdo);
+        } else {
+            errorResponse('Method not allowed', 405);
+        }
+    } else {
+        if ($method === 'GET') {
+            handleLabelsGet($pdo, $id);
+        } elseif ($method === 'PUT') {
+            handleLabelsUpdate($pdo, $id);
+        } elseif ($method === 'DELETE') {
+            handleLabelsDelete($pdo, $id);
         } else {
             errorResponse('Method not allowed', 405);
         }

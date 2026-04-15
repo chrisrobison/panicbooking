@@ -220,7 +220,7 @@ code {
 .topbar-logo .logo-text { font-size: 1.3rem; color: var(--text); }
 .topbar-logo .logo-icon { font-size: 1.3rem; }
 
-.topbar-user { display: flex; align-items: center; gap: 0.5rem; }
+.topbar-user { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
 
 /* Hamburger */
 .hamburger {
@@ -284,6 +284,33 @@ code {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.role-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.45rem;
+}
+
+.role-switcher-form {
+  margin-top: 0.25rem;
+}
+
+.role-switcher-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--text-dim);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.role-switcher-select {
+  width: 100%;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.55rem;
 }
 
 .sidebar-nav {
@@ -532,6 +559,10 @@ code {
 
 .badge-band   { background: rgba(230,57,70,0.15);  color: var(--accent);   border: 1px solid rgba(230,57,70,0.3); }
 .badge-venue  { background: rgba(244,162,97,0.15); color: var(--accent-2); border: 1px solid rgba(244,162,97,0.3); }
+.badge-agent { background: rgba(111,230,168,0.15); color: #86eac0; border: 1px solid rgba(111,230,168,0.3); }
+.badge-promoter { background: rgba(255,210,90,0.15); color: #ffd980; border: 1px solid rgba(255,210,90,0.3); }
+.badge-admin { background: rgba(188,110,255,0.18); color: #d8b7ff; border: 1px solid rgba(188,110,255,0.34); }
+.badge-recording_label { background: rgba(100,160,255,0.15); color: #8fb3ff; border: 1px solid rgba(100,160,255,0.3); }
 .badge-unclaimed {
   background: rgba(150,150,150,0.1);
   color: #888;
@@ -552,7 +583,10 @@ code {
   white-space: nowrap;
 }
 
-.user-type-badge { /* same as badge-band/venue but inside topbar */ }
+.user-type-badge {
+  font-size: 0.6rem;
+  padding: 0.15rem 0.45rem;
+}
 
 /* Tags */
 .tag {

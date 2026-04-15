@@ -21,9 +21,10 @@ function handleAdminListUsers(PDO $pdo): void {
     $capacityExpr = panicSqlJsonIntExpr($pdo, 'p.data', '$.capacity');
     $genresExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.genres');
     $genresWelcomedExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.genres_welcomed');
+    $genresFocusExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.genres_focus');
     $orderByName = panicSqlOrderByCi($profileNameExpr, 'ASC');
 
-    if ($type !== '' && in_array($type, ['band', 'venue', 'admin'])) {
+    if ($type !== '' && in_array($type, ['band', 'venue', 'admin', 'recording_label'], true)) {
         $where[]           = "u.type = :type";
         $params[':type']   = $type;
     }
@@ -57,6 +58,7 @@ function handleAdminListUsers(PDO $pdo): void {
                {$capacityExpr} AS capacity,
                {$genresExpr} AS genres_json,
                {$genresWelcomedExpr} AS genres_welcomed_json,
+               {$genresFocusExpr} AS genres_focus_json,
                COALESCE(p.is_generic, 0) AS is_generic,
                COALESCE(p.is_claimed, 0) AS is_claimed,
                COALESCE(p.is_archived, 0) AS is_archived
@@ -78,6 +80,8 @@ function handleAdminListUsers(PDO $pdo): void {
             $genres = json_decode($r['genres_json'], true) ?: [];
         } elseif (!empty($r['genres_welcomed_json'])) {
             $genres = json_decode($r['genres_welcomed_json'], true) ?: [];
+        } elseif (!empty($r['genres_focus_json'])) {
+            $genres = json_decode($r['genres_focus_json'], true) ?: [];
         }
         return [
             'id'           => (int)$r['id'],
@@ -100,7 +104,7 @@ function handleAdminListUsers(PDO $pdo): void {
 
 /**
  * POST /api/admin/users
- * Create a new band or venue user + empty profile.
+ * Create a new band, venue, or recording label user + empty profile.
  */
 function handleAdminCreateUser(PDO $pdo): void {
     apiRequireAdmin();
@@ -108,7 +112,7 @@ function handleAdminCreateUser(PDO $pdo): void {
 
     $body     = apiReadJsonBody();
     $email    = apiRequireEmail($body['email'] ?? '', 'email');
-    $type     = apiRequireEnum($body['type'] ?? '', ['band', 'venue'], 'type');
+    $type     = apiRequireEnum($body['type'] ?? '', ['band', 'venue', 'recording_label'], 'type');
     $name     = apiSanitizeText($body['name'] ?? '', 180);
     $pass     = (string)($body['password'] ?? '');
     $setAdmin = !empty($body['is_admin']) ? 1 : 0;
@@ -139,7 +143,7 @@ function handleAdminCreateUser(PDO $pdo): void {
             'set_length_min' => 45, 'set_length_max' => 90,
             'has_own_equipment' => false, 'available_last_minute' => false, 'notes' => '',
         ]);
-    } else {
+    } elseif ($type === 'venue') {
         $profileData = json_encode([
             'name' => $name, 'address' => '', 'neighborhood' => '', 'capacity' => 0,
             'description' => '', 'contact_email' => $email, 'contact_phone' => '',
@@ -148,6 +152,16 @@ function handleAdminCreateUser(PDO $pdo): void {
             'has_backline' => false, 'stage_size' => '', 'cover_charge' => false,
             'bar_service' => false, 'open_to_last_minute' => false,
             'booking_lead_time_days' => 0, 'notes' => '',
+        ]);
+    } else {
+        $profileData = json_encode([
+            'name' => $name, 'city' => 'San Francisco, CA', 'description' => '',
+            'contact_email' => $email, 'contact_phone' => '',
+            'website' => '', 'instagram' => '',
+            'genres_focus' => [], 'roster_highlights' => [],
+            'submission_email' => $email, 'submission_url' => '',
+            'preferred_venue_sizes' => [], 'actively_signing' => true,
+            'attends_live_shows' => true, 'notes' => '',
         ]);
     }
 
@@ -164,9 +178,9 @@ function handleAdminCreateUser(PDO $pdo): void {
 function handleAdminDeleteUser(PDO $pdo, int $id): void {
     apiRequireAdmin();
     apiRequireCsrf();
-    $current = apiCurrentUser();
+    $currentAccountId = apiAuthUserId();
 
-    if ($current['id'] === $id) {
+    if ($currentAccountId === $id) {
         errorResponse('Cannot delete your own admin account', 400);
     }
 
@@ -188,9 +202,9 @@ function handleAdminDeleteUser(PDO $pdo, int $id): void {
 function handleAdminSetAdminFlag(PDO $pdo, int $id): void {
     apiRequireAdmin();
     apiRequireCsrf();
-    $current = apiCurrentUser();
+    $currentAccountId = apiAuthUserId();
 
-    if ($current['id'] === $id) {
+    if ($currentAccountId === $id) {
         errorResponse('Cannot modify your own admin flag', 400);
     }
 

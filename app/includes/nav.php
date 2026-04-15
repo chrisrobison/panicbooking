@@ -1,6 +1,7 @@
 <?php
 // $currentPage must be set by the including file
 require_once __DIR__ . '/csrf.php';
+require_once __DIR__ . '/../../lib/user_roles.php';
 
 $user = currentUser();
 $currentPageKey = isset($currentPage) ? (string)$currentPage : '';
@@ -10,20 +11,48 @@ if ($user) {
     $userType = (string)($user['type'] ?? '');
     $isBand = $userType === 'band';
     $isVenue = $userType === 'venue';
+    $isRecordingLabel = $userType === 'recording_label';
+
+    $roleContexts = is_array($user['role_contexts'] ?? null) ? $user['role_contexts'] : [];
+    $roleBadgesRaw = is_array($user['role_badges'] ?? null) ? $user['role_badges'] : [];
+    $activeRoleKey = (string)($user['active_role_key'] ?? '');
 
     // In phase 1, admin users follow venue-primary flows for shared pages.
-    $primaryGroupId = ($isBand && !$isAdminUser) ? 'bands' : 'venues';
+    if ($isBand && !$isAdminUser) {
+        $primaryGroupId = 'bands';
+    } elseif ($isRecordingLabel && !$isAdminUser) {
+        $primaryGroupId = 'labels';
+    } else {
+        $primaryGroupId = 'venues';
+    }
+
     $sharedPagePrimaryGroup = [
         'opportunities' => $primaryGroupId,
         'bookings' => $primaryGroupId,
     ];
 
-    $quickStart = [
-        'icon' => ($isBand && !$isAdminUser) ? '🎯' : '📌',
-        'label' => ($isBand && !$isAdminUser) ? 'Find a Gig' : 'Post Open Date',
-        'href' => ($isBand && !$isAdminUser) ? '/app/opportunities.php' : '/app/opportunities.php#post-open-date',
-        'activeKey' => 'opportunities',
-    ];
+    if ($isBand && !$isAdminUser) {
+        $quickStart = [
+            'icon' => '🎯',
+            'label' => 'Find a Gig',
+            'href' => '/app/opportunities.php',
+            'activeKey' => 'opportunities',
+        ];
+    } elseif ($isRecordingLabel && !$isAdminUser) {
+        $quickStart = [
+            'icon' => '🧭',
+            'label' => 'Scout Bands',
+            'href' => '/app/bands.php',
+            'activeKey' => 'bands',
+        ];
+    } else {
+        $quickStart = [
+            'icon' => '📌',
+            'label' => 'Post Open Date',
+            'href' => '/app/opportunities.php#post-open-date',
+            'activeKey' => 'opportunities',
+        ];
+    }
 
     $groupedNav = [
         [
@@ -194,6 +223,52 @@ if ($user) {
                 ],
             ],
         ],
+        [
+            'id' => 'labels',
+            'title' => 'For Recording Labels',
+            'items' => [
+                [
+                    'id' => 'labels-scout-bands',
+                    'group' => 'labels',
+                    'icon' => '🎧',
+                    'label' => 'Scout Bands',
+                    'href' => '/app/bands.php',
+                    'activeKey' => 'bands',
+                    'enabled' => true,
+                    'hint' => 'Always available',
+                ],
+                [
+                    'id' => 'labels-calendar',
+                    'group' => 'labels',
+                    'icon' => '📅',
+                    'label' => 'Live Calendar',
+                    'href' => '/app/calendar.php',
+                    'activeKey' => 'calendar',
+                    'enabled' => true,
+                    'hint' => 'Always available',
+                ],
+                [
+                    'id' => 'labels-opportunities',
+                    'group' => 'labels',
+                    'icon' => '🗂️',
+                    'label' => 'Opportunity Feed',
+                    'href' => '/app/opportunities.php',
+                    'activeKey' => 'opportunities',
+                    'enabled' => true,
+                    'hint' => 'Always available',
+                ],
+                [
+                    'id' => 'labels-submissions',
+                    'group' => 'labels',
+                    'icon' => '📥',
+                    'label' => 'Submission Inbox',
+                    'href' => '#',
+                    'activeKey' => '',
+                    'enabled' => false,
+                    'hint' => 'Coming soon',
+                ],
+            ],
+        ],
     ];
 
     $accountItems = [
@@ -218,6 +293,43 @@ if ($user) {
 
         return true;
     };
+
+    $typeLabel = panicRoleLabel($userType);
+
+    $badgeSeen = [];
+    $roleBadges = [];
+    foreach ($roleBadgesRaw as $rawBadge) {
+        $badge = trim((string)$rawBadge);
+        if ($badge === '' || isset($badgeSeen[$badge])) {
+            continue;
+        }
+        $badgeSeen[$badge] = true;
+        $roleBadges[] = [
+            'key' => $badge,
+            'label' => panicRoleLabel($badge),
+        ];
+    }
+    if (empty($roleBadges)) {
+        $roleBadges[] = ['key' => $userType, 'label' => $typeLabel];
+    }
+
+    $roleContextOptions = [];
+    foreach ($roleContexts as $ctx) {
+        $ctxKey = trim((string)($ctx['key'] ?? ''));
+        if ($ctxKey === '') {
+            continue;
+        }
+        $ctxType = trim((string)($ctx['type'] ?? ''));
+        $ctxName = trim((string)($ctx['name'] ?? ''));
+        if ($ctxName === '') {
+            $ctxName = (string)($ctx['email'] ?? 'Account');
+        }
+        $roleContextOptions[] = [
+            'key' => $ctxKey,
+            'label' => panicRoleLabel($ctxType) . ' · ' . $ctxName,
+        ];
+    }
+    $canSwitchRole = count($roleContextOptions) > 1;
 } else {
     $publicNavItems = [
         ['icon' => '🌑', 'label' => 'Dark Nights', 'href' => '/app/dark-nights.php', 'key' => 'dark-nights'],
@@ -240,7 +352,9 @@ if ($user) {
         </a>
         <div class="topbar-user">
             <?php if ($user): ?>
-            <span class="user-type-badge badge-<?= htmlspecialchars($user['type']) ?>"><?= ucfirst(htmlspecialchars($user['type'])) ?></span>
+                <?php foreach ($roleBadges as $badge): ?>
+                    <span class="user-type-badge badge-<?= htmlspecialchars((string)$badge['key']) ?>"><?= htmlspecialchars((string)$badge['label']) ?></span>
+                <?php endforeach; ?>
             <?php endif; ?>
         </div>
     </header>
@@ -256,8 +370,27 @@ if ($user) {
 
         <?php if ($user): ?>
         <div class="sidebar-user">
-            <div class="sidebar-user-email"><?= htmlspecialchars($user['email']) ?></div>
-            <span class="badge badge-<?= htmlspecialchars($user['type']) ?>"><?= ucfirst(htmlspecialchars($user['type'])) ?></span>
+            <div class="sidebar-user-email"><?= htmlspecialchars((string)($user['account_email'] ?? $user['email'] ?? '')) ?></div>
+            <div class="role-badges">
+                <?php foreach ($roleBadges as $badge): ?>
+                    <span class="badge badge-<?= htmlspecialchars((string)$badge['key']) ?>"><?= htmlspecialchars((string)$badge['label']) ?></span>
+                <?php endforeach; ?>
+            </div>
+
+            <?php if ($canSwitchRole): ?>
+                <form method="post" action="/app/switch-role.php" class="role-switcher-form">
+                    <?= csrfInputField() ?>
+                    <input type="hidden" name="next" value="<?= htmlspecialchars((string)($_SERVER['REQUEST_URI'] ?? '/app/dashboard.php')) ?>">
+                    <label for="role_switcher" class="role-switcher-label">Active role</label>
+                    <select id="role_switcher" name="role_key" class="role-switcher-select" onchange="this.form.submit()">
+                        <?php foreach ($roleContextOptions as $opt): ?>
+                            <option value="<?= htmlspecialchars((string)$opt['key']) ?>" <?= ($activeRoleKey === (string)$opt['key']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)$opt['label']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </form>
+            <?php endif; ?>
         </div>
 
         <div class="sidebar-nav" aria-label="Primary Navigation">

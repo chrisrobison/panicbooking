@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/csrf.php';
 requireAuth();
 $user        = currentUser();
 $currentPage = 'settings';
+$accountEmail = (string)($user['account_email'] ?? $user['email'] ?? '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -29,7 +30,7 @@ $currentPage = 'settings';
         <div class="settings-grid">
             <div class="card-form settings-card">
                 <h2 class="form-section-title">Account Email</h2>
-                <p class="settings-current">Current email: <strong><?= htmlspecialchars($user['email']) ?></strong></p>
+                <p class="settings-current">Current email: <strong><?= htmlspecialchars($accountEmail) ?></strong></p>
                 <form id="emailForm">
                     <div class="form-group">
                         <label for="new_email">New Email Address</label>
