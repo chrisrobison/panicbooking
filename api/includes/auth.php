@@ -1,7 +1,27 @@
 <?php
 require_once __DIR__ . '/../../lib/session.php';
+require_once __DIR__ . '/../../lib/user_roles.php';
 
 panicStartSession();
+
+function apiEnsureRoleContextSession(?PDO $pdo = null): void {
+    panicHydrateLegacySessionFields();
+    if (!apiIsLoggedIn()) {
+        return;
+    }
+    if (panicSessionHasRoleContextData()) {
+        return;
+    }
+
+    $pdo = $pdo ?: panicDb();
+    $authUserId = (int)($_SESSION['auth_user_id'] ?? $_SESSION['user_id'] ?? 0);
+    if ($authUserId <= 0) {
+        return;
+    }
+
+    $ctx = panicBuildSessionContext($pdo, $authUserId, !empty($_SESSION['user_is_admin']), (string)($_SESSION['active_role_key'] ?? ''));
+    panicWriteSessionContext($ctx);
+}
 
 function apiRequireAuth(): void {
     if (!apiIsLoggedIn()) {
@@ -9,24 +29,42 @@ function apiRequireAuth(): void {
         echo json_encode(['error' => 'Unauthorized']);
         exit;
     }
+    apiEnsureRoleContextSession();
 }
 
 function apiIsLoggedIn(): bool {
-    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+    return !empty($_SESSION['auth_user_id']) || !empty($_SESSION['user_id']);
 }
 
 function apiCurrentUser(): ?array {
     if (!apiIsLoggedIn()) return null;
+    apiEnsureRoleContextSession();
+    $contexts = is_array($_SESSION['user_role_contexts'] ?? null) ? $_SESSION['user_role_contexts'] : [];
+    $badges = is_array($_SESSION['user_role_badges'] ?? null) ? $_SESSION['user_role_badges'] : [];
     return [
-        'id'       => (int)$_SESSION['user_id'],
-        'email'    => $_SESSION['user_email'],
-        'type'     => $_SESSION['user_type'],
+        'id'       => (int)($_SESSION['active_user_id'] ?? $_SESSION['user_id'] ?? 0),
+        'email'    => (string)($_SESSION['active_user_email'] ?? $_SESSION['user_email'] ?? ''),
+        'type'     => (string)($_SESSION['active_user_type'] ?? $_SESSION['user_type'] ?? ''),
         'is_admin' => (bool)($_SESSION['user_is_admin'] ?? false),
+        'account_id' => (int)($_SESSION['auth_user_id'] ?? $_SESSION['user_id'] ?? 0),
+        'account_email' => (string)($_SESSION['auth_user_email'] ?? $_SESSION['user_email'] ?? ''),
+        'account_type' => (string)($_SESSION['auth_user_type'] ?? $_SESSION['user_type'] ?? ''),
+        'active_role_key' => (string)($_SESSION['active_role_key'] ?? ''),
+        'role_contexts' => $contexts,
+        'role_badges' => $badges,
     ];
 }
 
 function apiIsAdmin(): bool {
     return apiIsLoggedIn() && !empty($_SESSION['user_is_admin']);
+}
+
+function apiAuthUserId(): int {
+    return (int)($_SESSION['auth_user_id'] ?? $_SESSION['user_id'] ?? 0);
+}
+
+function apiAuthUserEmail(): string {
+    return (string)($_SESSION['auth_user_email'] ?? $_SESSION['user_email'] ?? '');
 }
 
 function apiRequireAdmin(): void {
@@ -50,10 +88,8 @@ function apiRequireType(string $type): void {
 
 function apiLogin(int $userId, string $email, string $type, bool $isAdmin = false): void {
     session_regenerate_id(true);
-    $_SESSION['user_id']       = $userId;
-    $_SESSION['user_email']    = $email;
-    $_SESSION['user_type']     = $type;
-    $_SESSION['user_is_admin'] = $isAdmin;
+    $ctx = panicBuildSessionContext(panicDb(), $userId, $isAdmin);
+    panicWriteSessionContext($ctx);
     $_SESSION['_auth_at']      = time();
     $_SESSION['_last_activity'] = time();
     $_SESSION['_last_regenerated_at'] = time();

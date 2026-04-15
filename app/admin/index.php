@@ -270,7 +270,7 @@ $currentPage = 'admin';
     (function() {
         const csrfToken = <?= json_encode(csrfToken()) ?>;
         const LIMIT = 50;
-        const CURRENT_USER_ID = <?= (int)$user['id'] ?>;
+        const CURRENT_USER_ID = <?= (int)($user['account_id'] ?? $user['id']) ?>;
 
         // ── Tabs ──────────────────────────────────────────────────────────
         document.querySelectorAll('.admin-tab').forEach(btn => {

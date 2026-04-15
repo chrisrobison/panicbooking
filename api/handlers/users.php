@@ -4,9 +4,10 @@
 function handleUsersGetMe(PDO $pdo): void {
     apiRequireAuth();
     $user = apiCurrentUser();
+    $authUserId = apiAuthUserId();
 
     $stmt = $pdo->prepare("SELECT id, email, type, created_at FROM users WHERE id = ?");
-    $stmt->execute([$user['id']]);
+    $stmt->execute([$authUserId]);
     $row = $stmt->fetch();
 
     if (!$row) {
@@ -15,7 +16,7 @@ function handleUsersGetMe(PDO $pdo): void {
 
     // Also get profile
     $stmt2 = $pdo->prepare("SELECT data FROM profiles WHERE user_id = ?");
-    $stmt2->execute([$user['id']]);
+    $stmt2->execute([$authUserId]);
     $profileData = json_decode($stmt2->fetchColumn() ?: '{}', true) ?: [];
 
     jsonResponse([
@@ -33,6 +34,7 @@ function handleUsersUpdateMe(PDO $pdo): void {
     apiRequireAuth();
     apiRequireCsrf();
     $user = apiCurrentUser();
+    $authUserId = apiAuthUserId();
     $body = apiReadJsonBody();
 
     $currentPassword = $body['current_password'] ?? '';
@@ -45,7 +47,7 @@ function handleUsersUpdateMe(PDO $pdo): void {
 
     // Verify current password
     $stmt = $pdo->prepare("SELECT password_hash FROM users WHERE id = ?");
-    $stmt->execute([$user['id']]);
+    $stmt->execute([$authUserId]);
     $row = $stmt->fetch();
 
     if (!$row || !password_verify($currentPassword, $row['password_hash'])) {
@@ -56,13 +58,17 @@ function handleUsersUpdateMe(PDO $pdo): void {
         $newEmail = apiRequireEmail($newEmail, 'new_email');
         // Check not taken
         $stmt2 = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
-        $stmt2->execute([$newEmail, $user['id']]);
+        $stmt2->execute([$newEmail, $authUserId]);
         if ($stmt2->fetch()) {
             errorResponse('Email already in use', 409);
         }
         $stmt3 = $pdo->prepare("UPDATE users SET email = ? WHERE id = ?");
-        $stmt3->execute([$newEmail, $user['id']]);
-        $_SESSION['user_email'] = $newEmail;
+        $stmt3->execute([$newEmail, $authUserId]);
+        $_SESSION['auth_user_email'] = $newEmail;
+        if ((int)($_SESSION['active_user_id'] ?? 0) === $authUserId) {
+            $_SESSION['active_user_email'] = $newEmail;
+            $_SESSION['user_email'] = $newEmail;
+        }
     }
 
     if ($newPassword !== '') {
@@ -71,7 +77,7 @@ function handleUsersUpdateMe(PDO $pdo): void {
         }
         $hash  = password_hash($newPassword, PASSWORD_DEFAULT);
         $stmt4 = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
-        $stmt4->execute([$hash, $user['id']]);
+        $stmt4->execute([$hash, $authUserId]);
     }
 
     jsonResponse(['success' => true]);
@@ -80,10 +86,10 @@ function handleUsersUpdateMe(PDO $pdo): void {
 function handleUsersDeleteMe(PDO $pdo): void {
     apiRequireAuth();
     apiRequireCsrf();
-    $user = apiCurrentUser();
+    $authUserId = apiAuthUserId();
 
     $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
-    $stmt->execute([$user['id']]);
+    $stmt->execute([$authUserId]);
 
     apiLogout();
     jsonResponse(['success' => true]);

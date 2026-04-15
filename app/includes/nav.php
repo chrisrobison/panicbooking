@@ -1,6 +1,7 @@
 <?php
 // $currentPage must be set by the including file
 require_once __DIR__ . '/csrf.php';
+require_once __DIR__ . '/../../lib/user_roles.php';
 
 $user = currentUser();
 $currentPageKey = isset($currentPage) ? (string)$currentPage : '';
@@ -12,6 +13,10 @@ if ($user) {
     $isVenue = $userType === 'venue';
     $isRecordingLabel = $userType === 'recording_label';
 
+    $roleContexts = is_array($user['role_contexts'] ?? null) ? $user['role_contexts'] : [];
+    $roleBadgesRaw = is_array($user['role_badges'] ?? null) ? $user['role_badges'] : [];
+    $activeRoleKey = (string)($user['active_role_key'] ?? '');
+
     // In phase 1, admin users follow venue-primary flows for shared pages.
     if ($isBand && !$isAdminUser) {
         $primaryGroupId = 'bands';
@@ -20,6 +25,7 @@ if ($user) {
     } else {
         $primaryGroupId = 'venues';
     }
+
     $sharedPagePrimaryGroup = [
         'opportunities' => $primaryGroupId,
         'bookings' => $primaryGroupId,
@@ -288,7 +294,42 @@ if ($user) {
         return true;
     };
 
-    $typeLabel = ucwords(str_replace('_', ' ', $userType));
+    $typeLabel = panicRoleLabel($userType);
+
+    $badgeSeen = [];
+    $roleBadges = [];
+    foreach ($roleBadgesRaw as $rawBadge) {
+        $badge = trim((string)$rawBadge);
+        if ($badge === '' || isset($badgeSeen[$badge])) {
+            continue;
+        }
+        $badgeSeen[$badge] = true;
+        $roleBadges[] = [
+            'key' => $badge,
+            'label' => panicRoleLabel($badge),
+        ];
+    }
+    if (empty($roleBadges)) {
+        $roleBadges[] = ['key' => $userType, 'label' => $typeLabel];
+    }
+
+    $roleContextOptions = [];
+    foreach ($roleContexts as $ctx) {
+        $ctxKey = trim((string)($ctx['key'] ?? ''));
+        if ($ctxKey === '') {
+            continue;
+        }
+        $ctxType = trim((string)($ctx['type'] ?? ''));
+        $ctxName = trim((string)($ctx['name'] ?? ''));
+        if ($ctxName === '') {
+            $ctxName = (string)($ctx['email'] ?? 'Account');
+        }
+        $roleContextOptions[] = [
+            'key' => $ctxKey,
+            'label' => panicRoleLabel($ctxType) . ' · ' . $ctxName,
+        ];
+    }
+    $canSwitchRole = count($roleContextOptions) > 1;
 } else {
     $publicNavItems = [
         ['icon' => '🌑', 'label' => 'Dark Nights', 'href' => '/app/dark-nights.php', 'key' => 'dark-nights'],
@@ -310,7 +351,9 @@ if ($user) {
         </a>
         <div class="topbar-user">
             <?php if ($user): ?>
-            <span class="user-type-badge badge-<?= htmlspecialchars($user['type']) ?>"><?= htmlspecialchars($typeLabel) ?></span>
+                <?php foreach ($roleBadges as $badge): ?>
+                    <span class="user-type-badge badge-<?= htmlspecialchars((string)$badge['key']) ?>"><?= htmlspecialchars((string)$badge['label']) ?></span>
+                <?php endforeach; ?>
             <?php endif; ?>
         </div>
     </header>
@@ -326,8 +369,27 @@ if ($user) {
 
         <?php if ($user): ?>
         <div class="sidebar-user">
-            <div class="sidebar-user-email"><?= htmlspecialchars($user['email']) ?></div>
-            <span class="badge badge-<?= htmlspecialchars($user['type']) ?>"><?= htmlspecialchars($typeLabel) ?></span>
+            <div class="sidebar-user-email"><?= htmlspecialchars((string)($user['account_email'] ?? $user['email'] ?? '')) ?></div>
+            <div class="role-badges">
+                <?php foreach ($roleBadges as $badge): ?>
+                    <span class="badge badge-<?= htmlspecialchars((string)$badge['key']) ?>"><?= htmlspecialchars((string)$badge['label']) ?></span>
+                <?php endforeach; ?>
+            </div>
+
+            <?php if ($canSwitchRole): ?>
+                <form method="post" action="/app/switch-role.php" class="role-switcher-form">
+                    <?= csrfInputField() ?>
+                    <input type="hidden" name="next" value="<?= htmlspecialchars((string)($_SERVER['REQUEST_URI'] ?? '/app/dashboard.php')) ?>">
+                    <label for="role_switcher" class="role-switcher-label">Active role</label>
+                    <select id="role_switcher" name="role_key" class="role-switcher-select" onchange="this.form.submit()">
+                        <?php foreach ($roleContextOptions as $opt): ?>
+                            <option value="<?= htmlspecialchars((string)$opt['key']) ?>" <?= ($activeRoleKey === (string)$opt['key']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)$opt['label']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </form>
+            <?php endif; ?>
         </div>
 
         <div class="sidebar-nav" aria-label="Primary Navigation">

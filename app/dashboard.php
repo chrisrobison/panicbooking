@@ -7,7 +7,7 @@ requireAuth();
 $user    = currentUser();
 $profile = getProfile($pdo, $user['id']);
 $profileData = $profile['data'] ?? [];
-$userTypeLabel = ucwords(str_replace('_', ' ', (string)$user['type']));
+$userTypeLabel = panicRoleLabel((string)$user['type']);
 
 $displayName = $profileData['name'] ?? '';
 
@@ -55,9 +55,9 @@ $currentPage = 'dashboard';
             <span class="badge badge-<?= htmlspecialchars((string)$user['type']) ?>"><?= htmlspecialchars($userTypeLabel) ?></span>
         </div>
 
-        <?php if (empty($displayName)): ?>
+        <?php if (empty($displayName) && empty($user['is_admin'])): ?>
         <div class="alert alert-warning cta-banner">
-            <span>🎯 Your profile is incomplete — add your details so <?= $user['type'] === 'band' ? 'venues' : 'bands' ?> can find you!</span>
+            <span>🎯 Your profile is incomplete — add your details so <?= $user['type'] === 'band' ? 'venues and labels' : 'bands' ?> can find you!</span>
             <a href="/app/profile.php" class="btn btn-primary btn-sm">Complete Profile</a>
         </div>
         <?php endif; ?>

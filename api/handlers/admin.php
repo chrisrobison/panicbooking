@@ -174,9 +174,9 @@ function handleAdminCreateUser(PDO $pdo): void {
 function handleAdminDeleteUser(PDO $pdo, int $id): void {
     apiRequireAdmin();
     apiRequireCsrf();
-    $current = apiCurrentUser();
+    $currentAccountId = apiAuthUserId();
 
-    if ($current['id'] === $id) {
+    if ($currentAccountId === $id) {
         errorResponse('Cannot delete your own admin account', 400);
     }
 
@@ -198,9 +198,9 @@ function handleAdminDeleteUser(PDO $pdo, int $id): void {
 function handleAdminSetAdminFlag(PDO $pdo, int $id): void {
     apiRequireAdmin();
     apiRequireCsrf();
-    $current = apiCurrentUser();
+    $currentAccountId = apiAuthUserId();
 
-    if ($current['id'] === $id) {
+    if ($currentAccountId === $id) {
         errorResponse('Cannot modify your own admin flag', 400);
     }
 
