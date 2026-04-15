@@ -54,7 +54,7 @@ function handleAuthSignup(PDO $pdo): void {
     if (strlen($password) < 8) {
         errorResponse('Password must be at least 8 characters');
     }
-    $type = apiRequireEnum($type, ['band', 'venue', 'promoter', 'agent'], 'type');
+    $type = apiRequireEnum($type, ['band', 'venue', 'promoter', 'agent', 'recording_label'], 'type');
 
     // Check duplicate
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
@@ -102,6 +102,15 @@ function handleAuthSignup(PDO $pdo): void {
             'website' => '', 'instagram' => '',
             'location' => 'San Francisco, CA',
             'represented_genres' => [], 'notes' => '',
+        ]),
+        'recording_label' => json_encode([
+            'name' => '', 'city' => 'San Francisco, CA', 'description' => '',
+            'contact_email' => $email, 'contact_phone' => '',
+            'website' => '', 'instagram' => '',
+            'genres_focus' => [], 'roster_highlights' => [],
+            'submission_email' => $email, 'submission_url' => '',
+            'preferred_venue_sizes' => [], 'actively_signing' => true,
+            'attends_live_shows' => true, 'notes' => '',
         ]),
         default => json_encode([]),
     };

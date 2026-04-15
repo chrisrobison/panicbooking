@@ -7,6 +7,7 @@ requireAuth();
 $user    = currentUser();
 $profile = getProfile($pdo, $user['id']);
 $profileData = $profile['data'] ?? [];
+$userTypeLabel = ucwords(str_replace('_', ' ', (string)$user['type']));
 
 $displayName = $profileData['name'] ?? '';
 
@@ -51,7 +52,7 @@ $currentPage = 'dashboard';
             <h1 class="page-title">
                 Welcome back<?= $displayName ? ', ' . htmlspecialchars($displayName) : '' ?>
             </h1>
-            <span class="badge badge-<?= $user['type'] ?>"><?= ucfirst($user['type']) ?></span>
+            <span class="badge badge-<?= htmlspecialchars((string)$user['type']) ?>"><?= htmlspecialchars($userTypeLabel) ?></span>
         </div>
 
         <?php if (empty($displayName)): ?>

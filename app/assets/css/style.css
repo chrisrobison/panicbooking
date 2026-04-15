@@ -532,6 +532,7 @@ code {
 
 .badge-band   { background: rgba(230,57,70,0.15);  color: var(--accent);   border: 1px solid rgba(230,57,70,0.3); }
 .badge-venue  { background: rgba(244,162,97,0.15); color: var(--accent-2); border: 1px solid rgba(244,162,97,0.3); }
+.badge-recording_label { background: rgba(100,160,255,0.15); color: #8fb3ff; border: 1px solid rgba(100,160,255,0.3); }
 .badge-unclaimed {
   background: rgba(150,150,150,0.1);
   color: #888;

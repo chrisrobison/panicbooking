@@ -7,13 +7,13 @@ require_once __DIR__ . '/includes/functions.php';
 requireAuth();
 $user    = currentUser();
 
-// Admin edit mode: ?edit_id=N&edit_type=band|venue
+// Admin edit mode: ?edit_id=N&edit_type=band|venue|recording_label
 $editId   = null;
 $editType = null;
 $isAdminEdit = false;
 if (isAdmin() && isset($_GET['edit_id']) && is_numeric($_GET['edit_id'])) {
     $editId      = (int)$_GET['edit_id'];
-    $editType    = in_array($_GET['edit_type'] ?? '', ['band', 'venue']) ? $_GET['edit_type'] : null;
+    $editType    = in_array($_GET['edit_type'] ?? '', ['band', 'venue', 'recording_label']) ? $_GET['edit_type'] : null;
     $isAdminEdit = true;
 
     // If edit_type not provided via URL, look it up from the DB
@@ -53,6 +53,13 @@ $genres        = ['Alternative','Classic Rock','Punk','Indie','Rock','Metal','Co
 $neighborhoods = ['SoMa','Mission','Castro','Haight-Ashbury','North Beach','Tenderloin','Richmond','Sunset','SOMA','Downtown','Other'];
 $stageSizes    = ['Small <10ft','Medium 10-20ft','Large 20ft+'];
 $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
+$venueSizeTargets = ['DIY / under 100 cap', '100-300 cap clubs', '300-800 cap rooms', '800+ cap theaters'];
+$typeLabel = ucwords(str_replace('_', ' ', (string)$profileUser['type']));
+$profileDiscoveryTarget = match ((string)$profileUser['type']) {
+    'band' => 'venues and labels',
+    'recording_label' => 'bands',
+    default => 'bands',
+};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -79,12 +86,12 @@ $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
             <?php else: ?>
             <h1 class="page-title">Your Profile</h1>
             <?php endif; ?>
-            <span class="badge badge-<?= $profileUser['type'] ?>"><?= ucfirst($profileUser['type']) ?></span>
+            <span class="badge badge-<?= htmlspecialchars((string)$profileUser['type']) ?>"><?= htmlspecialchars($typeLabel) ?></span>
         </div>
 
         <?php if ($isNew): ?>
         <div class="alert alert-info">
-            Welcome! Fill in your profile below so <?= $profileUser['type'] === 'band' ? 'venues' : 'bands' ?> can discover you.
+            Welcome! Fill in your profile below so <?= htmlspecialchars($profileDiscoveryTarget) ?> can discover you.
         </div>
         <?php endif; ?>
 
@@ -307,6 +314,129 @@ $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
                 </div>
             </div>
 
+        <?php elseif ($profileUser['type'] === 'recording_label'): ?>
+            <!-- ===== RECORDING LABEL FORM ===== -->
+            <div class="form-section">
+                <h2 class="form-section-title">Basic Info</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Label Name *</label>
+                        <input type="text" id="name" name="name"
+                               value="<?= htmlspecialchars($pd['name'] ?? '') ?>"
+                               placeholder="Your label name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="city">City</label>
+                        <input type="text" id="city" name="city"
+                               value="<?= htmlspecialchars($pd['city'] ?? 'San Francisco, CA') ?>"
+                               placeholder="City, State">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="description">A&amp;R Focus</label>
+                    <textarea id="description" name="description" rows="4"
+                              placeholder="What artists are you actively scouting and signing?"><?= htmlspecialchars($pd['description'] ?? '') ?></textarea>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-section-title">Genres &amp; Market</h2>
+                <div class="checkbox-grid">
+                    <?php foreach ($genres as $g): ?>
+                    <label class="checkbox-option">
+                        <input type="checkbox" name="genres_focus[]" value="<?= htmlspecialchars($g) ?>"
+                               <?= in_array($g, $pd['genres_focus'] ?? [], true) ? 'checked' : '' ?>>
+                        <span class="checkbox-label"><?= htmlspecialchars($g) ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+                <div class="form-group" style="margin-top:1rem;">
+                    <label for="roster_highlights">Roster Highlights (one artist per line)</label>
+                    <textarea id="roster_highlights" name="roster_highlights_text" rows="4"
+                              placeholder="Artist Name&#10;Artist Name"><?= htmlspecialchars(implode("\n", (array)($pd['roster_highlights'] ?? []))) ?></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="preferred_venue_sizes">Preferred Live Rooms</label>
+                    <div class="day-check-group">
+                        <?php foreach ($venueSizeTargets as $size): ?>
+                        <label class="checkbox-option">
+                            <input type="checkbox" name="preferred_venue_sizes[]" value="<?= htmlspecialchars($size) ?>"
+                                   <?= in_array($size, $pd['preferred_venue_sizes'] ?? [], true) ? 'checked' : '' ?>>
+                            <span class="checkbox-label"><?= htmlspecialchars($size) ?></span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-section-title">Submissions &amp; Contact</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="contact_email">Contact Email</label>
+                        <input type="email" id="contact_email" name="contact_email"
+                               value="<?= htmlspecialchars($pd['contact_email'] ?? '') ?>"
+                               placeholder="hello@yourlabel.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact_phone">Contact Phone</label>
+                        <input type="tel" id="contact_phone" name="contact_phone"
+                               value="<?= htmlspecialchars($pd['contact_phone'] ?? '') ?>"
+                               placeholder="415-555-0000">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="website">Website</label>
+                        <input type="url" id="website" name="website"
+                               value="<?= htmlspecialchars($pd['website'] ?? '') ?>"
+                               placeholder="https://yourlabel.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="instagram">Instagram</label>
+                        <input type="url" id="instagram" name="instagram"
+                               value="<?= htmlspecialchars($pd['instagram'] ?? '') ?>"
+                               placeholder="https://instagram.com/yourlabel">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="submission_email">Submission Email</label>
+                        <input type="email" id="submission_email" name="submission_email"
+                               value="<?= htmlspecialchars($pd['submission_email'] ?? '') ?>"
+                               placeholder="demos@yourlabel.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="submission_url">Submission Form URL</label>
+                        <input type="url" id="submission_url" name="submission_url"
+                               value="<?= htmlspecialchars($pd['submission_url'] ?? '') ?>"
+                               placeholder="https://yourlabel.com/submit">
+                    </div>
+                </div>
+                <div class="checkbox-group-inline">
+                    <label class="checkbox-toggle checkbox-toggle-highlight">
+                        <input type="checkbox" id="actively_signing" name="actively_signing" value="1"
+                               <?= !empty($pd['actively_signing']) ? 'checked' : '' ?>>
+                        <span class="toggle-track"></span>
+                        <span class="toggle-label">Actively signing</span>
+                    </label>
+                    <label class="checkbox-toggle">
+                        <input type="checkbox" id="attends_live_shows" name="attends_live_shows" value="1"
+                               <?= !empty($pd['attends_live_shows']) ? 'checked' : '' ?>>
+                        <span class="toggle-track"></span>
+                        <span class="toggle-label">Attends live shows for scouting</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="form-section-title">Notes</h2>
+                <div class="form-group">
+                    <textarea id="notes" name="notes" rows="3"
+                              placeholder="Anything bands should know before submitting?"><?= htmlspecialchars($pd['notes'] ?? '') ?></textarea>
+                </div>
+            </div>
+
         <?php else: ?>
             <!-- ===== VENUE FORM ===== -->
             <div class="form-section">
@@ -520,8 +650,10 @@ $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
 
             // Handle checkboxes that might be unchecked
             const boolFields = USER_TYPE === 'band'
-                ? ['has_own_equipment','available_last_minute','seeking_gigs']
-                : ['has_pa','has_drums','has_backline','cover_charge','bar_service','open_to_last_minute'];
+                ? ['has_own_equipment', 'available_last_minute', 'seeking_gigs']
+                : (USER_TYPE === 'recording_label'
+                    ? ['actively_signing', 'attends_live_shows']
+                    : ['has_pa', 'has_drums', 'has_backline', 'cover_charge', 'bar_service', 'open_to_last_minute']);
 
             boolFields.forEach(f => {
                 data[f] = !!formData.get(f);
@@ -537,6 +669,14 @@ $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
                 data.members = (data.members || []).filter(m => m.trim() !== '');
                 // Availability fields
                 if (!data.available_days) data.available_days = [];
+            } else if (USER_TYPE === 'recording_label') {
+                if (!data.genres_focus) data.genres_focus = [];
+                if (!data.preferred_venue_sizes) data.preferred_venue_sizes = [];
+                const rosterRaw = (data.roster_highlights_text || '').split('\n');
+                data.roster_highlights = rosterRaw
+                    .map(v => v.trim())
+                    .filter(v => v.length > 0);
+                delete data.roster_highlights_text;
             } else {
                 data.capacity = parseInt(data.capacity) || 0;
                 data.booking_lead_time_days = parseInt(data.booking_lead_time_days) || 0;
@@ -545,7 +685,9 @@ $experiences   = ['Hobbyist','Semi-Pro','Professional','Touring'];
 
             const endpoint = USER_TYPE === 'band'
                 ? `/api/bands/${USER_ID}`
-                : `/api/venues/${USER_ID}`;
+                : (USER_TYPE === 'recording_label'
+                    ? `/api/labels/${USER_ID}`
+                    : `/api/venues/${USER_ID}`);
 
             try {
                 const resp = await fetch(endpoint, {

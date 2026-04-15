@@ -84,6 +84,7 @@ $currentPage = 'admin';
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="venues">Venues</button>
             <button class="admin-tab" data-tab="bands">Bands</button>
+            <button class="admin-tab" data-tab="labels">Recording Labels</button>
             <button class="admin-tab" data-tab="admins">Admin Users</button>
         </div>
 
@@ -176,6 +177,55 @@ $currentPage = 'admin';
             </div>
         </div>
 
+        <!-- ===== LABELS TAB ===== -->
+        <div id="tab-labels" class="tab-panel" style="display:none">
+            <div class="add-form-card">
+                <h3>Add New Recording Label</h3>
+                <div class="add-form-row">
+                    <div class="form-group">
+                        <label>Label Name</label>
+                        <input type="text" id="newLabelName" placeholder="e.g. Tidal Current Records">
+                    </div>
+                    <div class="form-group">
+                        <label>Login Email</label>
+                        <input type="email" id="newLabelEmail" placeholder="label@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="newLabelPassword" placeholder="Set a strong password">
+                    </div>
+                    <div class="form-group" style="flex:0 0 auto">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary btn-sm" id="addLabelBtn">Add Label</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <div class="search-row">
+                    <input type="text" id="labelSearch" placeholder="Search labels…" class="search-input">
+                    <button class="btn btn-sm" id="labelSearchBtn">Search</button>
+                </div>
+                <div class="admin-section-title">All Recording Labels <span id="labelTotalBadge" style="font-weight:400;color:var(--text-muted)"></span></div>
+                <div style="overflow-x:auto">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Genre Focus</th>
+                                <th style="text-align:right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="labelsTableBody">
+                            <tr><td colspan="4">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="labelsPagination"></div>
+            </div>
+        </div>
+
         <!-- ===== ADMINS TAB ===== -->
         <div id="tab-admins" class="tab-panel" style="display:none">
             <div class="add-form-card">
@@ -230,6 +280,7 @@ $currentPage = 'admin';
                 btn.classList.add('active');
                 document.getElementById('tab-' + btn.dataset.tab).style.display = '';
                 if (btn.dataset.tab === 'bands')  loadBands(true);
+                if (btn.dataset.tab === 'labels') loadLabels(true);
                 if (btn.dataset.tab === 'admins') loadAdmins();
             });
         });
@@ -288,11 +339,35 @@ $currentPage = 'admin';
         document.getElementById('bandSearchBtn').addEventListener('click', () => loadBands(true));
         document.getElementById('bandSearch').addEventListener('keydown', e => { if (e.key === 'Enter') loadBands(true); });
 
+        // ── Recording labels ─────────────────────────────────────────────
+        let labelOffset = 0, labelTotal = 0;
+
+        function loadLabels(reset = false) {
+            if (reset) labelOffset = 0;
+            const q = document.getElementById('labelSearch').value.trim();
+            fetch(`/api/admin/users?type=recording_label&q=${encodeURIComponent(q)}&limit=${LIMIT}&offset=${labelOffset}`, { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => {
+                    labelTotal = data.total || 0;
+                    document.getElementById('labelTotalBadge').textContent = `(${labelTotal.toLocaleString()})`;
+                    renderUsersTable(data.users || [], 'labelsTableBody', 'recording_label');
+                    renderPagination('labelsPagination', labelTotal, labelOffset, LIMIT, (off) => {
+                        labelOffset = off;
+                        loadLabels();
+                    });
+                })
+                .catch(() => showToast('Failed to load recording labels', 'error'));
+        }
+
+        document.getElementById('labelSearchBtn').addEventListener('click', () => loadLabels(true));
+        document.getElementById('labelSearch').addEventListener('keydown', e => { if (e.key === 'Enter') loadLabels(true); });
+
         // ── Render table rows ─────────────────────────────────────────────
         function renderUsersTable(users, tbodyId, type) {
             const tbody = document.getElementById(tbodyId);
             if (!users.length) {
-                tbody.innerHTML = `<tr><td colspan="${type === 'venue' ? 5 : 4}" style="text-align:center;color:var(--text-muted);padding:2rem">No ${type}s found</td></tr>`;
+                const colSpan = type === 'venue' ? 5 : 4;
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;color:var(--text-muted);padding:2rem">No ${type.replace('_', ' ')}s found</td></tr>`;
                 return;
             }
             tbody.innerHTML = users.map(u => {
@@ -303,6 +378,8 @@ $currentPage = 'admin';
                 let extras = '';
                 if (type === 'venue') {
                     extras = `<td class="col-email">${esc(u.neighborhood || '—')}</td><td>${esc(u.capacity ? String(u.capacity) : '—')}</td>`;
+                } else if (type === 'recording_label') {
+                    extras = `<td class="col-email">${esc((u.genres || []).join(', ') || '—')}</td>`;
                 } else {
                     extras = `<td class="col-email">${esc((u.genres || []).join(', ') || '—')}</td>`;
                 }
@@ -352,7 +429,9 @@ $currentPage = 'admin';
         // ── Delete user ───────────────────────────────────────────────────
         window.deleteUser = function(id, type) {
             if (!confirm(`Delete this ${type}? This cannot be undone.`)) return;
-            const endpoint = type === 'band' ? `/api/bands/${id}` : `/api/venues/${id}`;
+            const endpoint = type === 'band'
+                ? `/api/bands/${id}`
+                : (type === 'recording_label' ? `/api/labels/${id}` : `/api/venues/${id}`);
             fetch(endpoint, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-Token': csrfToken },
@@ -361,8 +440,11 @@ $currentPage = 'admin';
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        showToast(`${type.charAt(0).toUpperCase()+type.slice(1)} deleted.`, 'success');
-                        type === 'venue' ? loadVenues() : loadBands();
+                        const label = type === 'recording_label' ? 'Recording label' : `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+                        showToast(`${label} deleted.`, 'success');
+                        if (type === 'venue') loadVenues();
+                        else if (type === 'recording_label') loadLabels();
+                        else loadBands();
                     } else {
                         showToast(data.error || 'Delete failed', 'error');
                     }
@@ -384,6 +466,20 @@ $currentPage = 'admin';
             });
         });
 
+        // ── Add recording label ──────────────────────────────────────────
+        document.getElementById('addLabelBtn').addEventListener('click', () => {
+            const name  = document.getElementById('newLabelName').value.trim();
+            const email = document.getElementById('newLabelEmail').value.trim();
+            const pass  = document.getElementById('newLabelPassword').value.trim();
+            if (!email || !pass) { showToast('Email and password are required', 'error'); return; }
+            addUser('recording_label', name, email, pass, () => {
+                document.getElementById('newLabelName').value = '';
+                document.getElementById('newLabelEmail').value = '';
+                document.getElementById('newLabelPassword').value = '';
+                loadLabels();
+            });
+        });
+
         function addUser(type, name, email, pass, onSuccess) {
             fetch('/api/admin/users', {
                 method: 'POST',
@@ -397,7 +493,8 @@ $currentPage = 'admin';
             .then(r => r.json())
             .then(data => {
                 if (data.id) {
-                    showToast(`${type.charAt(0).toUpperCase()+type.slice(1)} created!`, 'success');
+                    const label = type === 'recording_label' ? 'Recording label' : `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+                    showToast(`${label} created!`, 'success');
                     onSuccess();
                 } else {
                     showToast(data.error || 'Create failed', 'error');
@@ -420,7 +517,7 @@ $currentPage = 'admin';
                     tbody.innerHTML = admins.map(u => `
                         <tr>
                             <td>${esc(u.email)}</td>
-                            <td><span class="badge badge-${esc(u.type)}">${esc(u.type)}</span></td>
+                            <td><span class="badge badge-${esc(u.type)}">${esc(String(u.type).replace('_', ' '))}</span></td>
                             <td class="col-actions">
                                 ${u.id !== CURRENT_USER_ID
                                     ? `<button class="btn btn-sm btn-danger" onclick="revokeAdmin(${u.id})">Revoke Admin</button>`

@@ -13,7 +13,7 @@ function normalizeNextPath(?string $next): string {
 
 $nextPath = normalizeNextPath($_GET['next'] ?? $_POST['next'] ?? '/app/profile.php?new=1');
 $defaultType = $_GET['type'] ?? '';
-if (!in_array($defaultType, ['band', 'venue', 'agent'], true)) {
+if (!in_array($defaultType, ['band', 'venue', 'agent', 'recording_label'], true)) {
     $defaultType = '';
 }
 $selectedType = $_POST['type'] ?? $defaultType;
@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Password must be at least 8 characters.';
     } elseif ($password !== $confirm) {
         $error = 'Passwords do not match.';
-    } elseif (!in_array($type, ['band', 'venue', 'agent'])) {
+    } elseif (!in_array($type, ['band', 'venue', 'agent', 'recording_label'])) {
         $error = 'Please select an account type.';
     } else {
         // Check if email already exists
@@ -81,6 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'location' => 'San Francisco, CA',
                     'represented_genres' => [], 'notes' => '',
                 ]),
+                'recording_label' => json_encode([
+                    'name' => '', 'city' => 'San Francisco, CA', 'description' => '',
+                    'contact_email' => $email, 'contact_phone' => '',
+                    'website' => '', 'instagram' => '',
+                    'genres_focus' => [], 'roster_highlights' => [],
+                    'submission_email' => $email, 'submission_url' => '',
+                    'preferred_venue_sizes' => [], 'actively_signing' => true,
+                    'attends_live_shows' => true, 'notes' => '',
+                ]),
                 default => json_encode([]),
             };
 
@@ -113,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <div class="auth-card">
             <h1 class="auth-title">Join Panic Booking</h1>
-            <p class="auth-subtitle">Connect bands and venues across San Francisco</p>
+            <p class="auth-subtitle">Connect bands, venues, and industry partners across San Francisco</p>
 
             <?php if ($error): ?>
                 <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
@@ -161,6 +170,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span class="type-icon">🤝</span>
                             <span class="type-label">Booking Agent</span>
                             <span class="type-desc">I represent artists</span>
+                        </label>
+                        <label class="type-option <?= ($selectedType === 'recording_label') ? 'selected' : '' ?>">
+                            <input type="radio" name="type" value="recording_label"
+                                   <?= ($selectedType === 'recording_label') ? 'checked' : '' ?>>
+                            <span class="type-icon">💿</span>
+                            <span class="type-label">Recording Label</span>
+                            <span class="type-desc">I scout and sign artists</span>
                         </label>
                     </div>
                 </div>

@@ -10,20 +10,43 @@ if ($user) {
     $userType = (string)($user['type'] ?? '');
     $isBand = $userType === 'band';
     $isVenue = $userType === 'venue';
+    $isRecordingLabel = $userType === 'recording_label';
 
     // In phase 1, admin users follow venue-primary flows for shared pages.
-    $primaryGroupId = ($isBand && !$isAdminUser) ? 'bands' : 'venues';
+    if ($isBand && !$isAdminUser) {
+        $primaryGroupId = 'bands';
+    } elseif ($isRecordingLabel && !$isAdminUser) {
+        $primaryGroupId = 'labels';
+    } else {
+        $primaryGroupId = 'venues';
+    }
     $sharedPagePrimaryGroup = [
         'opportunities' => $primaryGroupId,
         'bookings' => $primaryGroupId,
     ];
 
-    $quickStart = [
-        'icon' => ($isBand && !$isAdminUser) ? '🎯' : '📌',
-        'label' => ($isBand && !$isAdminUser) ? 'Find a Gig' : 'Post Open Date',
-        'href' => ($isBand && !$isAdminUser) ? '/app/opportunities.php' : '/app/opportunities.php#post-open-date',
-        'activeKey' => 'opportunities',
-    ];
+    if ($isBand && !$isAdminUser) {
+        $quickStart = [
+            'icon' => '🎯',
+            'label' => 'Find a Gig',
+            'href' => '/app/opportunities.php',
+            'activeKey' => 'opportunities',
+        ];
+    } elseif ($isRecordingLabel && !$isAdminUser) {
+        $quickStart = [
+            'icon' => '🧭',
+            'label' => 'Scout Bands',
+            'href' => '/app/bands.php',
+            'activeKey' => 'bands',
+        ];
+    } else {
+        $quickStart = [
+            'icon' => '📌',
+            'label' => 'Post Open Date',
+            'href' => '/app/opportunities.php#post-open-date',
+            'activeKey' => 'opportunities',
+        ];
+    }
 
     $groupedNav = [
         [
@@ -194,6 +217,52 @@ if ($user) {
                 ],
             ],
         ],
+        [
+            'id' => 'labels',
+            'title' => 'For Recording Labels',
+            'items' => [
+                [
+                    'id' => 'labels-scout-bands',
+                    'group' => 'labels',
+                    'icon' => '🎧',
+                    'label' => 'Scout Bands',
+                    'href' => '/app/bands.php',
+                    'activeKey' => 'bands',
+                    'enabled' => true,
+                    'hint' => 'Always available',
+                ],
+                [
+                    'id' => 'labels-calendar',
+                    'group' => 'labels',
+                    'icon' => '📅',
+                    'label' => 'Live Calendar',
+                    'href' => '/app/calendar.php',
+                    'activeKey' => 'calendar',
+                    'enabled' => true,
+                    'hint' => 'Always available',
+                ],
+                [
+                    'id' => 'labels-opportunities',
+                    'group' => 'labels',
+                    'icon' => '🗂️',
+                    'label' => 'Opportunity Feed',
+                    'href' => '/app/opportunities.php',
+                    'activeKey' => 'opportunities',
+                    'enabled' => true,
+                    'hint' => 'Always available',
+                ],
+                [
+                    'id' => 'labels-submissions',
+                    'group' => 'labels',
+                    'icon' => '📥',
+                    'label' => 'Submission Inbox',
+                    'href' => '#',
+                    'activeKey' => '',
+                    'enabled' => false,
+                    'hint' => 'Coming soon',
+                ],
+            ],
+        ],
     ];
 
     $accountItems = [
@@ -218,6 +287,8 @@ if ($user) {
 
         return true;
     };
+
+    $typeLabel = ucwords(str_replace('_', ' ', $userType));
 } else {
     $publicNavItems = [
         ['icon' => '🌑', 'label' => 'Dark Nights', 'href' => '/app/dark-nights.php', 'key' => 'dark-nights'],
@@ -239,7 +310,7 @@ if ($user) {
         </a>
         <div class="topbar-user">
             <?php if ($user): ?>
-            <span class="user-type-badge badge-<?= htmlspecialchars($user['type']) ?>"><?= ucfirst(htmlspecialchars($user['type'])) ?></span>
+            <span class="user-type-badge badge-<?= htmlspecialchars($user['type']) ?>"><?= htmlspecialchars($typeLabel) ?></span>
             <?php endif; ?>
         </div>
     </header>
@@ -256,7 +327,7 @@ if ($user) {
         <?php if ($user): ?>
         <div class="sidebar-user">
             <div class="sidebar-user-email"><?= htmlspecialchars($user['email']) ?></div>
-            <span class="badge badge-<?= htmlspecialchars($user['type']) ?>"><?= ucfirst(htmlspecialchars($user['type'])) ?></span>
+            <span class="badge badge-<?= htmlspecialchars($user['type']) ?>"><?= htmlspecialchars($typeLabel) ?></span>
         </div>
 
         <div class="sidebar-nav" aria-label="Primary Navigation">
