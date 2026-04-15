@@ -6,6 +6,8 @@
 require_once __DIR__ . '/../config/env.php';
 panicLoadEnvFiles();
 
+require_once __DIR__ . '/logger.php';
+
 function panicEnv(string $name, ?string $default = null): ?string {
     $value = getenv($name);
     if ($value === false) {
@@ -44,13 +46,7 @@ function panicPublicBaseUrl(): string {
 }
 
 function panicLog(string $event, array $context = [], string $level = 'info'): void {
-    $payload = [
-        'ts' => date('c'),
-        'level' => $level,
-        'event' => $event,
-        'context' => $context,
-    ];
-    error_log('[panicbooking] ' . json_encode($payload, JSON_UNESCAPED_UNICODE));
+    panicWriteLog($event, $context, $level);
 }
 
 function panicDebugEnabled(): bool {

@@ -83,7 +83,7 @@ function prettyDate(?string $value): string {
                     <h2 class="form-section-title" style="margin-bottom:.35rem;"><?= htmlspecialchars($event['title']) ?></h2>
                     <div class="page-subtitle"><?= htmlspecialchars($event['venue_name']) ?> · <?= htmlspecialchars(prettyDate($event['start_at'])) ?></div>
                 </div>
-                <a href="/event.php?slug=<?= urlencode($event['slug']) ?>" target="_blank" rel="noopener" class="btn btn-sm">View Public Page</a>
+                <a href="/event/<?= htmlspecialchars($event['slug']) ?>" target="_blank" rel="noopener" class="btn btn-sm">View Public Page</a>
             </div>
 
             <div style="margin-top:1rem;display:grid;grid-template-columns:1fr;gap:1rem;">

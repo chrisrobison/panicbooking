@@ -23,9 +23,12 @@ function handleAdminListUsers(PDO $pdo): void {
     $genresWelcomedExpr = panicSqlJsonTextExpr($pdo, 'p.data', '$.genres_welcomed');
     $orderByName = panicSqlOrderByCi($profileNameExpr, 'ASC');
 
-    if ($type !== '' && in_array($type, ['band', 'venue'])) {
+    if ($type !== '' && in_array($type, ['band', 'venue', 'admin'])) {
         $where[]           = "u.type = :type";
         $params[':type']   = $type;
+    }
+    if (isset($_GET['is_admin']) && $_GET['is_admin'] === '1') {
+        $where[] = "u.is_admin = 1";
     }
     if ($q !== '') {
         $where[]       = "(u.email LIKE :q OR p.data LIKE :q2)";
@@ -103,11 +106,12 @@ function handleAdminCreateUser(PDO $pdo): void {
     apiRequireAdmin();
     apiRequireCsrf();
 
-    $body  = apiReadJsonBody();
-    $email = apiRequireEmail($body['email'] ?? '', 'email');
-    $type  = apiRequireEnum($body['type'] ?? '', ['band', 'venue'], 'type');
-    $name  = apiSanitizeText($body['name'] ?? '', 180);
-    $pass  = (string)($body['password'] ?? '');
+    $body     = apiReadJsonBody();
+    $email    = apiRequireEmail($body['email'] ?? '', 'email');
+    $type     = apiRequireEnum($body['type'] ?? '', ['band', 'venue'], 'type');
+    $name     = apiSanitizeText($body['name'] ?? '', 180);
+    $pass     = (string)($body['password'] ?? '');
+    $setAdmin = !empty($body['is_admin']) ? 1 : 0;
 
     if (strlen($pass) < 8) {
         errorResponse('Password must be at least 8 characters', 422);
@@ -121,8 +125,8 @@ function handleAdminCreateUser(PDO $pdo): void {
     }
 
     $hash = password_hash($pass, PASSWORD_DEFAULT);
-    $ins  = $pdo->prepare("INSERT INTO users (email, password_hash, type) VALUES (?, ?, ?)");
-    $ins->execute([$email, $hash, $type]);
+    $ins  = $pdo->prepare("INSERT INTO users (email, password_hash, type, is_admin) VALUES (?, ?, ?, ?)");
+    $ins->execute([$email, $hash, $type, $setAdmin]);
     $userId = (int)$pdo->lastInsertId();
 
     // Default profile data
@@ -150,7 +154,7 @@ function handleAdminCreateUser(PDO $pdo): void {
     $pdo->prepare("INSERT INTO profiles (user_id, type, data) VALUES (?, ?, ?)")
         ->execute([$userId, $type, $profileData]);
 
-    jsonResponse(['success' => true, 'id' => $userId, 'email' => $email, 'type' => $type], 201);
+    jsonResponse(['success' => true, 'id' => $userId, 'email' => $email, 'type' => $type, 'is_admin' => (bool)$setAdmin], 201);
 }
 
 /**

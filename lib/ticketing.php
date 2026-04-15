@@ -3,8 +3,7 @@
 require_once __DIR__ . '/security.php';
 
 function ticketingLog(string $message, array $context = []): void {
-    $suffix = $context ? ' ' . json_encode($context) : '';
-    error_log('[ticketing] ' . $message . $suffix);
+    panicWriteLog($message, $context, panicLogInferLevel($message));
 }
 
 function ticketingNow(): string {

@@ -20,6 +20,13 @@ $currentPage = 'dark-nights';
     <?php include __DIR__ . '/includes/nav.php'; ?>
 
     <main class="main-content">
+
+        <!-- View switcher -->
+        <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+            <span class="btn btn-primary btn-sm" style="cursor:default">🎸 Band View</span>
+            <a href="/app/venue-dark-nights.php" class="btn btn-secondary btn-sm">📅 Venue View</a>
+        </div>
+
         <div class="page-header">
             <div>
                 <h1 class="page-title">Dark Nights</h1>

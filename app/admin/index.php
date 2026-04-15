@@ -178,8 +178,11 @@ $currentPage = 'admin';
 
         <!-- ===== ADMINS TAB ===== -->
         <div id="tab-admins" class="tab-panel" style="display:none">
+
+            <!-- Grant existing user -->
             <div class="add-form-card">
                 <h3>Grant Admin by Email</h3>
+                <p style="font-size:.85rem;color:var(--text-muted);margin:-.5rem 0 .75rem">Promote an existing band or venue account to global admin.</p>
                 <div class="add-form-row">
                     <div class="form-group">
                         <label>User Email</label>
@@ -192,19 +195,47 @@ $currentPage = 'admin';
                 </div>
             </div>
 
+            <!-- Create new admin account -->
+            <div class="add-form-card">
+                <h3>Create New Admin Account</h3>
+                <p style="font-size:.85rem;color:var(--text-muted);margin:-.5rem 0 .75rem">Creates a new account and immediately grants admin access.</p>
+                <div class="add-form-row">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="newAdminEmail" placeholder="admin@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="newAdminPassword" placeholder="Min 8 characters">
+                    </div>
+                    <div class="form-group" style="flex:0 0 auto">
+                        <label>Type</label>
+                        <select id="newAdminType" style="height:38px">
+                            <option value="band">Band</option>
+                            <option value="venue">Venue</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:0 0 auto">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary btn-sm" id="createAdminBtn">Create Admin</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="admin-section">
                 <div class="admin-section-title">Current Admins</div>
                 <div style="overflow-x:auto">
                     <table class="admin-table">
                         <thead>
                             <tr>
+                                <th>Name</th>
                                 <th>Email</th>
                                 <th>Type</th>
                                 <th style="text-align:right">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="adminsTableBody">
-                            <tr><td colspan="3">Loading…</td></tr>
+                            <tr><td colspan="4">Loading…</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -291,12 +322,13 @@ $currentPage = 'admin';
         // ── Render table rows ─────────────────────────────────────────────
         function renderUsersTable(users, tbodyId, type) {
             const tbody = document.getElementById(tbodyId);
+            const cols  = type === 'venue' ? 6 : 5;
             if (!users.length) {
-                tbody.innerHTML = `<tr><td colspan="${type === 'venue' ? 5 : 4}" style="text-align:center;color:var(--text-muted);padding:2rem">No ${type}s found</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--text-muted);padding:2rem">No ${type}s found</td></tr>`;
                 return;
             }
             tbody.innerHTML = users.map(u => {
-                const name = esc(u.profile_name || '—');
+                const name  = esc(u.profile_name || '—');
                 const email = esc(u.email);
                 const adminBadge = u.is_admin ? ' <span class="badge-admin">admin</span>' : '';
 
@@ -307,12 +339,19 @@ $currentPage = 'admin';
                     extras = `<td class="col-email">${esc((u.genres || []).join(', ') || '—')}</td>`;
                 }
 
+                const adminToggle = u.id !== CURRENT_USER_ID
+                    ? (u.is_admin
+                        ? `<button class="btn btn-sm" onclick="toggleAdmin(${u.id}, false)" title="Revoke admin">Revoke Admin</button>`
+                        : `<button class="btn btn-sm" onclick="toggleAdmin(${u.id}, true)" title="Grant admin">Make Admin</button>`)
+                    : '';
+
                 return `<tr>
                     <td class="col-name">${name}${adminBadge}</td>
                     <td class="col-email">${email}</td>
                     ${extras}
                     <td class="col-actions">
                         <a href="/app/profile.php?edit_id=${u.id}&edit_type=${type}" class="btn btn-sm">Edit</a>
+                        ${adminToggle}
                         <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${type}')">Delete</button>
                     </td>
                 </tr>`;
@@ -406,65 +445,11 @@ $currentPage = 'admin';
             .catch(() => showToast('Network error', 'error'));
         }
 
-        // ── Admins tab ────────────────────────────────────────────────────
-        function loadAdmins() {
-            fetch('/api/admin/users?limit=100', { credentials: 'same-origin' })
-                .then(r => r.json())
-                .then(data => {
-                    const admins = (data.users || []).filter(u => u.is_admin);
-                    const tbody = document.getElementById('adminsTableBody');
-                    if (!admins.length) {
-                        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:2rem">No admins found</td></tr>';
-                        return;
-                    }
-                    tbody.innerHTML = admins.map(u => `
-                        <tr>
-                            <td>${esc(u.email)}</td>
-                            <td><span class="badge badge-${esc(u.type)}">${esc(u.type)}</span></td>
-                            <td class="col-actions">
-                                ${u.id !== CURRENT_USER_ID
-                                    ? `<button class="btn btn-sm btn-danger" onclick="revokeAdmin(${u.id})">Revoke Admin</button>`
-                                    : '<span style="color:var(--text-muted);font-size:.82rem">You</span>'}
-                            </td>
-                        </tr>
-                    `).join('');
-                })
-                .catch(() => showToast('Failed to load admins', 'error'));
-        }
-
-        document.getElementById('grantAdminBtn').addEventListener('click', () => {
-            const email = document.getElementById('delegateEmail').value.trim();
-            if (!email) { showToast('Enter an email address', 'error'); return; }
-
-            // Look up user by email via admin list
-            fetch(`/api/admin/users?q=${encodeURIComponent(email)}&limit=10`, { credentials: 'same-origin' })
-                .then(r => r.json())
-                .then(data => {
-                    const match = (data.users || []).find(u => u.email === email.toLowerCase());
-                    if (!match) { showToast('User not found', 'error'); return; }
-                    setAdminFlag(match.id, true, () => {
-                        document.getElementById('delegateEmail').value = '';
-                        showToast(`Admin granted to ${email}`, 'success');
-                        loadAdmins();
-                    });
-                });
-        });
-
-        window.revokeAdmin = function(id) {
-            if (!confirm('Revoke admin access for this user?')) return;
-            setAdminFlag(id, false, () => {
-                showToast('Admin revoked', 'success');
-                loadAdmins();
-            });
-        };
-
+        // ── Admin flag helpers ────────────────────────────────────────────
         function setAdminFlag(id, flag, onSuccess) {
             fetch(`/api/admin/users/${id}/admin`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken,
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
                 credentials: 'same-origin',
                 body: JSON.stringify({ is_admin: flag })
             })
@@ -475,6 +460,93 @@ $currentPage = 'admin';
             })
             .catch(() => showToast('Network error', 'error'));
         }
+
+        window.toggleAdmin = function(id, grant) {
+            const action = grant ? 'Grant admin to' : 'Revoke admin from';
+            if (!confirm(`${action} this user?`)) return;
+            setAdminFlag(id, grant, () => {
+                showToast(grant ? 'Admin granted' : 'Admin revoked', 'success');
+                // Refresh whichever tab is visible
+                loadVenues(true);
+                if (document.getElementById('tab-bands').style.display !== 'none') loadBands(true);
+                loadAdmins();
+            });
+        };
+
+        // ── Admins tab ────────────────────────────────────────────────────
+        function loadAdmins() {
+            // Server-side filter — no client-side filtering, no result-limit guessing
+            fetch('/api/admin/users?is_admin=1&limit=500', { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => {
+                    const admins = data.users || [];
+                    const tbody  = document.getElementById('adminsTableBody');
+                    if (!admins.length) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:2rem">No admin accounts yet. Use the forms above to grant or create one.</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = admins.map(u => `
+                        <tr>
+                            <td class="col-name">${esc(u.profile_name || '—')}</td>
+                            <td class="col-email">${esc(u.email)}</td>
+                            <td><span class="badge badge-${esc(u.type)}">${esc(u.type)}</span></td>
+                            <td class="col-actions">
+                                ${u.id !== CURRENT_USER_ID
+                                    ? `<button class="btn btn-sm btn-danger" onclick="toggleAdmin(${u.id}, false)">Revoke Admin</button>`
+                                    : '<span style="color:var(--text-muted);font-size:.82rem">You</span>'}
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(() => showToast('Failed to load admins', 'error'));
+        }
+
+        // Grant admin to existing account by email
+        document.getElementById('grantAdminBtn').addEventListener('click', () => {
+            const email = document.getElementById('delegateEmail').value.trim();
+            if (!email) { showToast('Enter an email address', 'error'); return; }
+
+            fetch(`/api/admin/users?q=${encodeURIComponent(email)}&limit=5`, { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => {
+                    const match = (data.users || []).find(u => u.email === email.toLowerCase());
+                    if (!match) { showToast('No account found for that email', 'error'); return; }
+                    if (match.id === CURRENT_USER_ID) { showToast('That\'s you — already admin', 'error'); return; }
+                    setAdminFlag(match.id, true, () => {
+                        document.getElementById('delegateEmail').value = '';
+                        showToast(`Admin granted to ${email}`, 'success');
+                        loadAdmins();
+                    });
+                })
+                .catch(() => showToast('Network error', 'error'));
+        });
+
+        // Create new account with admin flag already set
+        document.getElementById('createAdminBtn').addEventListener('click', () => {
+            const email = document.getElementById('newAdminEmail').value.trim();
+            const pass  = document.getElementById('newAdminPassword').value.trim();
+            const type  = document.getElementById('newAdminType').value;
+            if (!email || !pass) { showToast('Email and password required', 'error'); return; }
+
+            fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+                credentials: 'same-origin',
+                body: JSON.stringify({ email, password: pass, type, name: '', is_admin: true })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.id) {
+                    document.getElementById('newAdminEmail').value    = '';
+                    document.getElementById('newAdminPassword').value = '';
+                    showToast(`Admin account created for ${email}`, 'success');
+                    loadAdmins();
+                } else {
+                    showToast(data.error || 'Create failed', 'error');
+                }
+            })
+            .catch(() => showToast('Network error', 'error'));
+        });
 
         // ── Init ──────────────────────────────────────────────────────────
         loadVenues();

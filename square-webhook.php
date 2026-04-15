@@ -24,6 +24,14 @@ if (!is_string($payload) || trim($payload) === '') {
     exit;
 }
 
+$_logEvent = json_decode($payload, true);
+ticketingLog('square_webhook_received', [
+    'event_id'   => $_logEvent['event_id'] ?? $_logEvent['id'] ?? null,
+    'event_type' => $_logEvent['type'] ?? null,
+    'ip'         => $_SERVER['REMOTE_ADDR'] ?? null,
+]);
+unset($_logEvent);
+
 $signature = trim((string)($_SERVER['HTTP_X_SQUARE_HMACSHA256_SIGNATURE'] ?? ''));
 if ($signature === '' && function_exists('getallheaders')) {
     $headers = getallheaders();

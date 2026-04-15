@@ -1250,16 +1250,42 @@ function initVenueDarkNightsPage() {
     document.getElementById('vdnLoadMoreBtn').addEventListener('click', () => {
         loadVdnBands(false);
     });
+
+    // Venue selector — public/guest mode
+    const venueSel = document.getElementById('vdnVenueSelect');
+    if (venueSel) {
+        venueSel.addEventListener('change', () => {
+            const newId = parseInt(venueSel.value, 10);
+            if (newId > 0) {
+                window.VDN_CONFIG = Object.assign({}, window.VDN_CONFIG, { venueId: newId });
+                const url = new URL(window.location.href);
+                url.searchParams.set('venue_id', newId);
+                history.pushState({}, '', url.toString());
+                loadVenueCalendar();
+            }
+        });
+    }
+
+    // Hide owner-only action elements in read-only (guest) mode
+    const cfgInit = window.VDN_CONFIG || {};
+    if (!cfgInit.isOwner) {
+        const postBtn = document.getElementById('vdnPostDateBtn');
+        if (postBtn) postBtn.style.display = 'none';
+    }
 }
 
 // ── Calendar ──────────────────────────────────────────
 
 function loadVenueCalendar() {
+    const cfg = window.VDN_CONFIG || {};
     const container = document.getElementById('vdnCalContainer');
     container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading calendar...</p></div>';
     document.getElementById('vdnStats').textContent = 'Loading...';
 
-    fetch(`/api/venue/calendar?date_from=${vdnDateFrom}&months=2`, { credentials: 'same-origin' })
+    let calUrl = `/api/venue/calendar?date_from=${vdnDateFrom}&months=2`;
+    if (!cfg.isOwner && cfg.venueId) calUrl += `&venue_id=${cfg.venueId}`;
+
+    fetch(calUrl, { credentials: 'same-origin' })
         .then(r => r.json())
         .then(data => {
             if (data.error) {
@@ -1296,9 +1322,17 @@ function renderVenueCalendars(data) {
     html += '</div>';
     container.innerHTML = html;
 
-    // Click handlers — dark nights → band browser
+    // Click handlers — dark nights → band browser (owners) or interest form (guests)
     container.querySelectorAll('.vdn-day.dark[data-date]').forEach(cell => {
-        cell.addEventListener('click', () => openBandBrowser(cell.dataset.date));
+        cell.addEventListener('click', () => {
+            const cfg2 = window.VDN_CONFIG || {};
+            if (cfg2.isOwner) {
+                openBandBrowser(cell.dataset.date);
+            } else {
+                const vname = (vdnData && vdnData.venue_name) || cfg2.venueName || '';
+                if (typeof openInterestModal === 'function') openInterestModal(vname, cell.dataset.date);
+            }
+        });
     });
     // Click handlers — booked days → show detail
     container.querySelectorAll('.vdn-day.booked[data-date]').forEach(cell => {
@@ -1443,9 +1477,11 @@ function loadVdnBands(reset) {
         document.getElementById('vdnLoadMoreWrap').style.display = 'none';
     }
 
+    const cfg3 = window.VDN_CONFIG || {};
     const qs = new URLSearchParams({ offset: vdnBandOffset, limit: VDN_BAND_LIMIT });
     if (vdnBandQuery) qs.set('q', vdnBandQuery);
     if (vdnBandGenre) qs.set('genre', vdnBandGenre);
+    if (!cfg3.isOwner && cfg3.venueId) qs.set('venue_id', cfg3.venueId);
 
     fetch(`/api/venue/recommended-bands?${qs}`, { credentials: 'same-origin' })
         .then(r => r.json())

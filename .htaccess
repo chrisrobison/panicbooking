@@ -1,0 +1,4 @@
+RewriteEngine On
+
+# Clean URL: /event/<slug> → /event.php?slug=<slug>
+RewriteRule ^event/([^/]+)/?$ /event.php?slug=$1 [L,QSA]

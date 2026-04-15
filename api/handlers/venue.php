@@ -6,13 +6,27 @@
  * Returns the authenticated venue's calendar: booked dates, dark nights, show metadata.
  */
 function handleVenueCalendar(PDO $pdo): void {
-    apiRequireAuth();
-    $user = apiCurrentUser();
-    if (!$user || ($user['type'] !== 'venue' && !($user['is_admin'] ?? false))) {
+    $user    = apiIsLoggedIn() ? apiCurrentUser() : null;
+    $isOwner = false;
+    $userId  = 0;
+
+    if ($user && ($user['type'] === 'venue' || ($user['is_admin'] ?? false))) {
+        $userId  = (int)$user['id'];
+        $isOwner = true;
+    } elseif (isset($_GET['venue_id']) && (int)$_GET['venue_id'] > 0) {
+        $vid = (int)$_GET['venue_id'];
+        $chkStmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND type = 'venue' LIMIT 1");
+        $chkStmt->execute([$vid]);
+        if (!$chkStmt->fetchColumn()) {
+            errorResponse('Venue not found', 404);
+            return;
+        }
+        $userId = $vid;
+    } else {
         errorResponse('Venue access required', 403);
+        return;
     }
 
-    $userId   = (int)$user['id'];
     $today    = date('Y-m-d');
     $months   = max(1, min(6, (int)($_GET['months'] ?? 2)));
     $dateFrom = trim($_GET['date_from'] ?? $today);
@@ -138,12 +152,14 @@ function handleVenueCalendar(PDO $pdo): void {
     jsonResponse([
         'date_from'    => $dateFrom,
         'date_to'      => $dateTo,
+        'dates'        => $allDates,
         'venue_name'   => $venueName,
         'venue_slug'   => $venueSlug,
         'genres'       => array_values((array)($venueData['genres_welcomed'] ?? [])),
         'booked_dates' => $bookedDates,
         'dark_dates'   => $darkDates,
         'shows'        => $showsByDate,
+        'is_owner'     => $isOwner,
     ]);
 }
 
@@ -152,13 +168,27 @@ function handleVenueCalendar(PDO $pdo): void {
  * Returns bands ranked by genre match, past history, and performance score.
  */
 function handleVenueRecommendedBands(PDO $pdo): void {
-    apiRequireAuth();
-    $user = apiCurrentUser();
-    if (!$user || ($user['type'] !== 'venue' && !($user['is_admin'] ?? false))) {
+    $user    = apiIsLoggedIn() ? apiCurrentUser() : null;
+    $isOwner = false;
+    $userId  = 0;
+
+    if ($user && ($user['type'] === 'venue' || ($user['is_admin'] ?? false))) {
+        $userId  = (int)$user['id'];
+        $isOwner = true;
+    } elseif (isset($_GET['venue_id']) && (int)$_GET['venue_id'] > 0) {
+        $vid = (int)$_GET['venue_id'];
+        $chkStmt2 = $pdo->prepare("SELECT id FROM users WHERE id = ? AND type = 'venue' LIMIT 1");
+        $chkStmt2->execute([$vid]);
+        if (!$chkStmt2->fetchColumn()) {
+            errorResponse('Venue not found', 404);
+            return;
+        }
+        $userId = $vid;
+    } else {
         errorResponse('Venue access required', 403);
+        return;
     }
 
-    $userId      = (int)$user['id'];
     $q           = trim($_GET['q'] ?? '');
     $genreFilter = trim($_GET['genre'] ?? '');
     $offset      = max(0, (int)($_GET['offset'] ?? 0));

@@ -22,6 +22,7 @@ function panicDbBootstrap(PDO $pdo): void {
     panicDbEnsureMigrationsTable($pdo);
     panicDbApplyMigrations($pdo);
     panicDbApplyLegacyColumnPatches($pdo);
+    panicDbBootstrapFirstAdmin($pdo);
 
     panicDbBootstrapLog('db_bootstrap_complete', [
         'driver' => panicDbDriver($pdo),
@@ -163,6 +164,48 @@ function panicDbApplyLegacyColumnPatches(PDO $pdo): void {
 
     panicDbEnsureIndex($pdo, 'profiles', 'idx_profiles_type_archived', 'type, is_archived, is_generic, is_claimed');
     panicDbEnsureIndex($pdo, 'profiles', 'idx_profiles_claimed_by', 'claimed_by_user_id');
+}
+
+/**
+ * If PB_BOOTSTRAP_ADMIN_EMAIL is set in the environment:
+ *   - Promotes that user to admin if they already have an account.
+ *   - If PB_BOOTSTRAP_ADMIN_PASSWORD is also set and no account exists, creates
+ *     one (type 'band') and grants admin. Safe to re-run: no-ops once done.
+ */
+function panicDbBootstrapFirstAdmin(PDO $pdo): void {
+    $email = strtolower(trim((string)panicEnv('PB_BOOTSTRAP_ADMIN_EMAIL', '')));
+    if ($email === '') return;
+
+    $stmt = $pdo->prepare("SELECT id, is_admin FROM users WHERE email = ? LIMIT 1");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user) {
+        if (!(bool)$user['is_admin']) {
+            $pdo->prepare("UPDATE users SET is_admin = 1 WHERE id = ?")->execute([(int)$user['id']]);
+            panicLog('bootstrap_admin_promoted', ['email' => $email, 'id' => (int)$user['id']]);
+        }
+        return;
+    }
+
+    // Account doesn't exist — create it if a bootstrap password is provided
+    $pass = (string)panicEnv('PB_BOOTSTRAP_ADMIN_PASSWORD', '');
+    if ($pass === '' || strlen($pass) < 8) return;
+
+    $hash = password_hash($pass, PASSWORD_DEFAULT);
+    try {
+        $ins = $pdo->prepare("INSERT INTO users (email, password_hash, type, is_admin) VALUES (?, ?, 'band', 1)");
+        $ins->execute([$email, $hash]);
+        $newId = (int)$pdo->lastInsertId();
+        $pdo->prepare("INSERT INTO profiles (user_id, type, data) VALUES (?, 'band', ?)")
+            ->execute([$newId, json_encode(['name' => 'Admin', 'contact_email' => $email])]);
+        panicLog('bootstrap_admin_created', ['email' => $email, 'id' => $newId]);
+    } catch (Throwable $e) {
+        panicLog('bootstrap_admin_create_failed', [
+            'email' => $email,
+            'error' => $e->getMessage(),
+        ], 'error');
+    }
 }
 
 function panicDbEnsureIndex(PDO $pdo, string $table, string $indexName, string $columnsSql): void {

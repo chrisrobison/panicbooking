@@ -32,9 +32,12 @@ function panicLoadEnvFiles(?array $paths = null): void {
     }
     $loaded = true;
 
+    // .env.local is loaded first so its values take precedence over .env.
+    // OS / server-level environment variables still win over both files
+    // (the putenv call is skipped when getenv() already returns a value).
     $defaultPaths = [
-        __DIR__ . '/../.env',
         __DIR__ . '/../.env.local',
+        __DIR__ . '/../.env',
     ];
 
     $paths = $paths ?: $defaultPaths;

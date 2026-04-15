@@ -72,7 +72,7 @@ function fmtDateTime(?string $value): string {
                 <?php foreach ($eventRows as $row):
                     $event = $row['event'];
                     $summary = $row['summary'];
-                    $publicUrl = '/event.php?slug=' . urlencode($event['slug']);
+                    $publicUrl = '/event/' . rawurlencode($event['slug']);
                     ?>
                     <tr>
                         <td>

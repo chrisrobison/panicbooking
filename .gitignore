@@ -3,3 +3,4 @@ data/booking.db
 data/scrape.log
 .env
 .env.local
+db/migrations/*

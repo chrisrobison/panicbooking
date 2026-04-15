@@ -80,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($editing) {
             ticketingUpdateEvent($pdo, $user, $eventId, $payload);
             ticketingSyncEventLineup($pdo, $user, $eventId, $rawLineup);
+            ticketingCreateTicketTypes($pdo, $user, $eventId, $rawTickets);
             $pdo->commit();
             header('Location: /app/event-edit.php?id=' . $eventId . '&saved=1');
             exit;
@@ -360,11 +361,16 @@ $BILLING_LABELS = [
                 </h2>
 
                 <div id="ticketBuilder" <?= (($event['event_type'] ?? 'ticketed') !== 'ticketed') ? 'hidden' : '' ?>>
-                    <?php if ($editing && !empty($existingTicketTypes)): ?>
+                    <?php if ($editing): ?>
                         <p class="field-hint" style="margin-bottom:.75rem;">
-                            Existing ticket types are managed on the
-                            <a href="/app/event-tickets.php?id=<?= (int)$event['id'] ?>">Ticket Types page</a>.
-                            Add <em>new</em> types below.
+                            <?php if (!empty($existingTicketTypes)): ?>
+                                Existing ticket types are managed on the
+                                <a href="/app/event-tickets.php?id=<?= (int)$event['id'] ?>">Ticket Types page</a>.
+                                Add <em>new</em> types below and they will be saved with this form.
+                            <?php else: ?>
+                                Add ticket types below and they will be saved with this form, or manage them on the
+                                <a href="/app/event-tickets.php?id=<?= (int)$event['id'] ?>">Ticket Types page</a>.
+                            <?php endif; ?>
                         </p>
                     <?php endif; ?>
 

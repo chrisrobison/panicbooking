@@ -221,6 +221,7 @@ if ($user) {
 } else {
     $publicNavItems = [
         ['icon' => '🌑', 'label' => 'Dark Nights', 'href' => '/app/dark-nights.php', 'key' => 'dark-nights'],
+        ['icon' => '🗓️', 'label' => 'Venue Calendar', 'href' => '/app/venue-dark-nights.php', 'key' => 'venue-dark-nights'],
         ['icon' => '🎸', 'label' => 'Bands', 'href' => '/app/bands.php', 'key' => 'bands'],
         ['icon' => '🏛', 'label' => 'Venues', 'href' => '/app/venues', 'key' => 'venues'],
         ['icon' => '📅', 'label' => 'Shows', 'href' => '/app/calendar.php', 'key' => 'calendar'],
